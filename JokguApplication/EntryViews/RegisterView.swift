@@ -5,7 +5,7 @@ struct RegisterView: View {
     @State private var firstName: String = ""
     @State private var lastName: String = ""
     @State private var phoneNumber: String = ""
-    @State private var dob: Date = Date()
+    @State private var dob: Date? = nil
     @State private var username: String = ""
     @State private var password: String = ""
     @State private var message: String? = nil
@@ -26,7 +26,10 @@ struct RegisterView: View {
                 .keyboardType(.phonePad)
                 .padding(.horizontal)
 
-            DatePicker("Date of Birth", selection: $dob, displayedComponents: .date)
+            DatePicker("Date of Birth", selection: Binding(
+                get: { dob ?? Date() },
+                set: { dob = $0 }
+            ), displayedComponents: .date)
                 .datePickerStyle(.compact)
                 .environment(\.locale, Locale(identifier: "en_GB"))
                 .padding(.horizontal)
@@ -52,14 +55,21 @@ struct RegisterView: View {
                 }
                 Spacer()
                 Button("Create") {
-                    if DatabaseManager.shared.userExists(username) {
+                    let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty || dob == nil {
+                        showMessage("All fields are required", color: .red)
+                    } else if DatabaseManager.shared.userExists(username) {
                         showMessage("Username already exists", color: .red)
-                    } else if DatabaseManager.shared.insertUser(username: username, password: password, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dateFormatter.string(from: dob)) {
+                    } else if DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!)) {
                         showMessage("User created", color: .green)
                         self.firstName = ""
                         self.lastName = ""
                         self.phoneNumber = ""
-                        self.dob = Date()
+                        self.dob = nil
                         self.username = ""
                         self.password = ""
                     } else {
