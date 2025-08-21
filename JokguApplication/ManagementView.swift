@@ -3,19 +3,20 @@ import SwiftUI
 struct ManagementView: View {
     @Environment(\.dismiss) var dismiss
     @State private var keyCode = KeyCode(id: 0, code: "", location: "")
+    @State private var originalKeyCode = KeyCode(id: 0, code: "", location: "")
+
+    private var hasChanges: Bool {
+        keyCode.code != originalKeyCode.code || keyCode.location != originalKeyCode.location
+    }
 
     var body: some View {
         NavigationView {
             VStack(spacing: 16) {
-                TextField("Keycode", text: $keyCode.code, onCommit: {
-                    DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, location: keyCode.location)
-                })
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+                TextField("Keycode", text: $keyCode.code)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                TextField("Location", text: $keyCode.location, onCommit: {
-                    DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, location: keyCode.location)
-                })
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+                TextField("Location", text: $keyCode.location)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
 
                 Spacer()
             }
@@ -24,6 +25,13 @@ struct ManagementView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Back") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, location: keyCode.location)
+                        originalKeyCode = keyCode
+                    }
+                    .disabled(!hasChanges)
                 }
             }
             .onAppear {
@@ -35,6 +43,7 @@ struct ManagementView: View {
     private func loadData() {
         if let item = DatabaseManager.shared.fetchKeyCodes().first {
             keyCode = item
+            originalKeyCode = item
         }
     }
 }
