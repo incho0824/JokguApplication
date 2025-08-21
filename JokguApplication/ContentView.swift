@@ -1,61 +1,54 @@
-//
-//  ContentView.swift
-//  JokguApplication
-//
-//  Created by In Cho on 8/20/25.
-//
-
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @State private var username: String = ""
+    @State private var password: String = ""
+    @State private var isLoggedIn: Bool = false
+    @State private var loginFailed: Bool = false
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
+        if isLoggedIn {
+            HomeView()
+        } else {
+            VStack(spacing: 16) {
+                TextField("Username", text: $username)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(.horizontal)
+
+                SecureField("Password", text: $password)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+
+                Button("Login") {
+                    if username == "admin" && password == "admin" {
+                        isLoggedIn = true
+                        loginFailed = false
+                    } else {
+                        loginFailed = true
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
+                .padding(.top)
+
+                if loginFailed {
+                    Text("Invalid credentials")
+                        .foregroundColor(.red)
                 }
             }
-        } detail: {
-            Text("Select an item")
+            .padding()
         }
     }
+}
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
-        }
+struct HomeView: View {
+    var body: some View {
+        Text("Atlanta Jokgu Association")
+            .font(.title)
+            .padding()
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
