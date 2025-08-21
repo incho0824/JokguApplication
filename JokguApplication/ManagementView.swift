@@ -41,7 +41,7 @@ struct ManagementView: View {
     }
 
     private func loadData() {
-        if let item = DatabaseManager.shared.fetchKeyCodes().first {
+        if let item = DatabaseManager.shared.fetchManagementData().first {
             keyCode = item
             originalKeyCode = item
         }

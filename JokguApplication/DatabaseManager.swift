@@ -124,7 +124,22 @@ class DatabaseManager {
         return items
     }
 
-    func fetchKeyCodes() -> [KeyCode] {
+    func fetchKeyCode() -> String? {
+        let query = "SELECT keycode FROM management LIMIT 1;"
+        var statement: OpaquePointer?
+        var code: String? = nil
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            if sqlite3_step(statement) == SQLITE_ROW {
+                if let cString = sqlite3_column_text(statement, 0) {
+                    code = String(cString: cString)
+                }
+            }
+        }
+        sqlite3_finalize(statement)
+        return code
+    }
+
+    func fetchManagementData() -> [KeyCode] {
         let query = "SELECT id, keycode, location FROM management;"
         var statement: OpaquePointer?
         var items: [KeyCode] = []
