@@ -11,6 +11,11 @@ struct Member: Identifiable {
     let id: Int
     var username: String
     var password: String
+    var firstName: String
+    var lastName: String
+    var phoneNumber: String
+    var dob: String
+    var attendance: Int
     var permit: Int
 }
 
@@ -32,7 +37,7 @@ class DatabaseManager {
 
     private func createTables() {
         let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT, location TEXT);"
-        let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, permit INTEGER DEFAULT 0);"
+        let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, firstname TEXT, lastname TEXT, phonenumber TEXT, dob TEXT, attendance INTEGER DEFAULT 0, permit INTEGER DEFAULT 0);"
         if sqlite3_exec(db, createManagementTable, nil, nil, nil) != SQLITE_OK {
             print("Could not create management table")
         } else {
@@ -69,15 +74,18 @@ class DatabaseManager {
         return exists
     }
 
-    func insertUser(username: String, password: String) -> Bool {
+    func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String) -> Bool {
         guard !userExists(username) else { return false }
-        let insertSQL = "INSERT INTO member (username, password, permit) VALUES (?, ?, ?);"
+        let insertSQL = "INSERT INTO member (username, password, firstname, lastname, phonenumber, dob) VALUES (?, ?, ?, ?, ?, ?);"
         var statement: OpaquePointer?
         var success = false
         if sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_text(statement, 1, NSString(string: username).utf8String, -1, nil)
             sqlite3_bind_text(statement, 2, NSString(string: password).utf8String, -1, nil)
-            sqlite3_bind_int(statement, 3, 0)
+            sqlite3_bind_text(statement, 3, NSString(string: firstName).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 4, NSString(string: lastName).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 5, NSString(string: phoneNumber).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 6, NSString(string: dob).utf8String, -1, nil)
             if sqlite3_step(statement) == SQLITE_DONE {
                 success = true
             }
@@ -102,7 +110,7 @@ class DatabaseManager {
     }
 
     func fetchMembers() -> [Member] {
-        let query = "SELECT id, username, password, permit FROM member;"
+        let query = "SELECT id, username, password, firstname, lastname, phonenumber, dob, attendance, permit FROM member;"
         var statement: OpaquePointer?
         var items: [Member] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -116,8 +124,25 @@ class DatabaseManager {
                 if let pString = sqlite3_column_text(statement, 2) {
                     password = String(cString: pString)
                 }
-                let permit = Int(sqlite3_column_int(statement, 3))
-                items.append(Member(id: id, username: username, password: password, permit: permit))
+                var firstName = ""
+                if let fString = sqlite3_column_text(statement, 3) {
+                    firstName = String(cString: fString)
+                }
+                var lastName = ""
+                if let lString = sqlite3_column_text(statement, 4) {
+                    lastName = String(cString: lString)
+                }
+                var phoneNumber = ""
+                if let phString = sqlite3_column_text(statement, 5) {
+                    phoneNumber = String(cString: phString)
+                }
+                var dob = ""
+                if let dString = sqlite3_column_text(statement, 6) {
+                    dob = String(cString: dString)
+                }
+                let attendance = Int(sqlite3_column_int(statement, 7))
+                let permit = Int(sqlite3_column_int(statement, 8))
+                items.append(Member(id: id, username: username, password: password, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, attendance: attendance, permit: permit))
             }
         }
         sqlite3_finalize(statement)
