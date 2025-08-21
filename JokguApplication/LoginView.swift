@@ -53,12 +53,21 @@ struct LoginView: View {
                     .keyboardType(.numberPad)
                     .padding(.horizontal)
 
-                Button("Confirm") {
-                    let storedCode = DatabaseManager.shared.fetchKeyCodes().first?.code ?? ""
-                    if keyCodeInput == storedCode {
+                HStack {
+                    Button("Cancel") {
                         showKeyCodePrompt = false
                         keyCodeInput = ""
-                        showRegisterView = true
+                    }
+
+                    Spacer()
+
+                    Button("Confirm") {
+                        let storedCode = DatabaseManager.shared.fetchKeyCode() ?? ""
+                        if keyCodeInput == storedCode {
+                            showKeyCodePrompt = false
+                            keyCodeInput = ""
+                            showRegisterView = true
+                        }
                     }
                 }
                 .padding(.top)
