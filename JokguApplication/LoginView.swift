@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LoginView: View {
     @Binding var isLoggedIn: Bool
+    @Binding var userPermit: Int
     @State private var username: String = ""
     @State private var password: String = ""
     @State private var loginFailed: Bool = false
@@ -22,9 +23,10 @@ struct LoginView: View {
                 .padding(.horizontal)
 
             Button("Login") {
-                if DatabaseManager.shared.validateUser(username: username, password: password) {
+                if let permit = DatabaseManager.shared.validateUser(username: username, password: password) {
                     isLoggedIn = true
                     loginFailed = false
+                    userPermit = permit
                 } else {
                     loginFailed = true
                 }
@@ -49,7 +51,7 @@ struct LoginView: View {
                     .padding(.horizontal)
 
                 Button("Confirm") {
-                    DatabaseManager.shared.insertKeyCode(keyCodeInput)
+                    _ = DatabaseManager.shared.insertKeyCode(keyCodeInput)
                     if keyCodeInput == "1234" {
                         showKeyCodePrompt = false
                         keyCodeInput = ""
@@ -67,5 +69,5 @@ struct LoginView: View {
 }
 
 #Preview {
-    LoginView(isLoggedIn: .constant(false))
+    LoginView(isLoggedIn: .constant(false), userPermit: .constant(0))
 }

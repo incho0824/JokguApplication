@@ -30,13 +30,16 @@ struct RegisterView: View {
                 }
                 Spacer()
                 Button("Create") {
-                    if DatabaseManager.shared.insertUser(username: username, password: password) {
+                    if DatabaseManager.shared.userExists(username) {
+                        self.message = "Username already exists"
+                        self.messageColor = .red
+                    } else if DatabaseManager.shared.insertUser(username: username, password: password) {
                         self.message = "User created"
                         self.messageColor = .green
                         self.username = ""
                         self.password = ""
                     } else {
-                        self.message = "Username already exists"
+                        self.message = "Unable to create user"
                         self.messageColor = .red
                     }
                 }
