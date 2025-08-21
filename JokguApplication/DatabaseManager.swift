@@ -4,6 +4,7 @@ import SQLite3
 struct KeyCode: Identifiable {
     let id: Int
     var code: String
+    var location: String
 }
 
 class DatabaseManager {
@@ -23,28 +24,28 @@ class DatabaseManager {
     }
 
     private func createTables() {
-        let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT);"
+        let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT, location TEXT);"
         let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, permit INTEGER DEFAULT 0);"
         if sqlite3_exec(db, createManagementTable, nil, nil, nil) != SQLITE_OK {
             print("Could not create management table")
+        } else {
+            // ensure there is always exactly one management row
+            let countQuery = "SELECT COUNT(*) FROM management;"
+            var countStmt: OpaquePointer?
+            if sqlite3_prepare_v2(db, countQuery, -1, &countStmt, nil) == SQLITE_OK {
+                if sqlite3_step(countStmt) == SQLITE_ROW {
+                    let count = sqlite3_column_int(countStmt, 0)
+                    if count == 0 {
+                        let insertDefault = "INSERT INTO management (keycode, location) VALUES ('1234', '');"
+                        sqlite3_exec(db, insertDefault, nil, nil, nil)
+                    }
+                }
+            }
+            sqlite3_finalize(countStmt)
         }
         if sqlite3_exec(db, createMemberTable, nil, nil, nil) != SQLITE_OK {
             print("Could not create member table")
         }
-    }
-
-    func insertKeyCode(_ keycode: String) -> Bool {
-        let insertSQL = "INSERT INTO management (keycode) VALUES (?);"
-        var statement: OpaquePointer?
-        var success = false
-        if sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, NSString(string: keycode).utf8String, -1, nil)
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
-            }
-        }
-        sqlite3_finalize(statement)
-        return success
     }
 
     func userExists(_ username: String) -> Bool {
@@ -94,38 +95,34 @@ class DatabaseManager {
     }
 
     func fetchKeyCodes() -> [KeyCode] {
-        let query = "SELECT id, keycode FROM management;"
+        let query = "SELECT id, keycode, location FROM management;"
         var statement: OpaquePointer?
         var items: [KeyCode] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             while sqlite3_step(statement) == SQLITE_ROW {
                 let id = Int(sqlite3_column_int(statement, 0))
+                var code = ""
                 if let cString = sqlite3_column_text(statement, 1) {
-                    let code = String(cString: cString)
-                    items.append(KeyCode(id: id, code: code))
+                    code = String(cString: cString)
                 }
+                var location = ""
+                if let lString = sqlite3_column_text(statement, 2) {
+                    location = String(cString: lString)
+                }
+                items.append(KeyCode(id: id, code: code, location: location))
             }
         }
         sqlite3_finalize(statement)
         return items
     }
 
-    func updateKeyCode(id: Int, code: String) {
-        let query = "UPDATE management SET keycode = ? WHERE id = ?;"
+    func updateManagement(id: Int, code: String, location: String) {
+        let query = "UPDATE management SET keycode = ?, location = ? WHERE id = ?;"
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_text(statement, 1, NSString(string: code).utf8String, -1, nil)
-            sqlite3_bind_int(statement, 2, Int32(id))
-            sqlite3_step(statement)
-        }
-        sqlite3_finalize(statement)
-    }
-
-    func deleteKeyCode(id: Int) {
-        let query = "DELETE FROM management WHERE id = ?;"
-        var statement: OpaquePointer?
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(id))
+            sqlite3_bind_text(statement, 2, NSString(string: location).utf8String, -1, nil)
+            sqlite3_bind_int(statement, 3, Int32(id))
             sqlite3_step(statement)
         }
         sqlite3_finalize(statement)

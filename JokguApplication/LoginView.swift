@@ -51,8 +51,8 @@ struct LoginView: View {
                     .padding(.horizontal)
 
                 Button("Confirm") {
-                    _ = DatabaseManager.shared.insertKeyCode(keyCodeInput)
-                    if keyCodeInput == "1234" {
+                    let storedCode = DatabaseManager.shared.fetchKeyCodes().first?.code ?? ""
+                    if keyCodeInput == storedCode {
                         showKeyCodePrompt = false
                         keyCodeInput = ""
                         showRegisterView = true

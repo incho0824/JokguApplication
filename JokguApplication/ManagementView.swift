@@ -1,40 +1,31 @@
 import SwiftUI
 
 struct ManagementView: View {
-    @State private var keyCodes: [KeyCode] = []
-    @State private var newCode: String = ""
+    @Environment(\.dismiss) var dismiss
+    @State private var keyCode = KeyCode(id: 0, code: "", location: "")
 
     var body: some View {
         NavigationView {
-            VStack {
-                List {
-                    ForEach($keyCodes) { $item in
-                        TextField("Keycode", text: $item.code, onCommit: {
-                            DatabaseManager.shared.updateKeyCode(id: item.id, code: item.code)
-                        })
-                    }
-                    .onDelete { indexSet in
-                        for index in indexSet {
-                            let id = keyCodes[index].id
-                            DatabaseManager.shared.deleteKeyCode(id: id)
-                        }
-                        keyCodes.remove(atOffsets: indexSet)
-                    }
-                }
+            VStack(spacing: 16) {
+                TextField("Keycode", text: $keyCode.code, onCommit: {
+                    DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, location: keyCode.location)
+                })
+                .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                HStack {
-                    TextField("New keycode", text: $newCode)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    Button("Add") {
-                        if DatabaseManager.shared.insertKeyCode(newCode) {
-                            loadData()
-                            newCode = ""
-                        }
-                    }
-                }
-                .padding()
+                TextField("Location", text: $keyCode.location, onCommit: {
+                    DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, location: keyCode.location)
+                })
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                Spacer()
             }
+            .padding()
             .navigationTitle("Management")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Back") { dismiss() }
+                }
+            }
             .onAppear {
                 loadData()
             }
@@ -42,7 +33,9 @@ struct ManagementView: View {
     }
 
     private func loadData() {
-        keyCodes = DatabaseManager.shared.fetchKeyCodes()
+        if let item = DatabaseManager.shared.fetchKeyCodes().first {
+            keyCode = item
+        }
     }
 }
 
