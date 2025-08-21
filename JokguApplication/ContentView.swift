@@ -41,14 +41,6 @@ struct ContentView: View {
     }
 }
 
-struct HomeView: View {
-    var body: some View {
-        Text("Atlanta Jokgu Association")
-            .font(.title)
-            .padding()
-    }
-}
-
 #Preview {
     ContentView()
 }
