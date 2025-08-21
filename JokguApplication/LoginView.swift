@@ -22,7 +22,7 @@ struct LoginView: View {
                 .padding(.horizontal)
 
             Button("Login") {
-                if username == "admin" && password == "admin" {
+                if DatabaseManager.shared.validateUser(username: username, password: password) {
                     isLoggedIn = true
                     loginFailed = false
                 } else {
@@ -49,6 +49,7 @@ struct LoginView: View {
                     .padding(.horizontal)
 
                 Button("Confirm") {
+                    DatabaseManager.shared.insertKeyCode(keyCodeInput)
                     if keyCodeInput == "1234" {
                         showKeyCodePrompt = false
                         keyCodeInput = ""
@@ -68,4 +69,3 @@ struct LoginView: View {
 #Preview {
     LoginView(isLoggedIn: .constant(false))
 }
-
