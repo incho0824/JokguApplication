@@ -19,7 +19,7 @@ class DatabaseManager {
 
     private func createTables() {
         let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT);"
-        let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT);"
+        let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, permit INTEGER DEFAULT 0);"
         if sqlite3_exec(db, createManagementTable, nil, nil, nil) != SQLITE_OK {
             print("Could not create management table")
         }
@@ -54,12 +54,13 @@ class DatabaseManager {
 
     func insertUser(username: String, password: String) -> Bool {
         guard !userExists(username) else { return false }
-        let insertSQL = "INSERT INTO member (username, password) VALUES (?, ?);"
+        let insertSQL = "INSERT INTO member (username, password, permit) VALUES (?, ?, ?);"
         var statement: OpaquePointer?
         var success = false
         if sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_text(statement, 1, NSString(string: username).utf8String, -1, nil)
             sqlite3_bind_text(statement, 2, NSString(string: password).utf8String, -1, nil)
+            sqlite3_bind_int(statement, 3, 0)
             if sqlite3_step(statement) == SQLITE_DONE {
                 success = true
             }
