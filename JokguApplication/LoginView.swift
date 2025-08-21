@@ -29,6 +29,9 @@ struct LoginView: View {
                     userPermit = permit
                 } else {
                     loginFailed = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        loginFailed = false
+                    }
                 }
             }
             .padding(.top)

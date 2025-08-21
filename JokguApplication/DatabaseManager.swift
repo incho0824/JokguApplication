@@ -7,6 +7,13 @@ struct KeyCode: Identifiable {
     var location: String
 }
 
+struct Member: Identifiable {
+    let id: Int
+    var username: String
+    var password: String
+    var permit: Int
+}
+
 class DatabaseManager {
     static let shared = DatabaseManager()
     let db: OpaquePointer?
@@ -92,6 +99,29 @@ class DatabaseManager {
         }
         sqlite3_finalize(statement)
         return permit
+    }
+
+    func fetchMembers() -> [Member] {
+        let query = "SELECT id, username, password, permit FROM member;"
+        var statement: OpaquePointer?
+        var items: [Member] = []
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            while sqlite3_step(statement) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(statement, 0))
+                var username = ""
+                if let uString = sqlite3_column_text(statement, 1) {
+                    username = String(cString: uString)
+                }
+                var password = ""
+                if let pString = sqlite3_column_text(statement, 2) {
+                    password = String(cString: pString)
+                }
+                let permit = Int(sqlite3_column_int(statement, 3))
+                items.append(Member(id: id, username: username, password: password, permit: permit))
+            }
+        }
+        sqlite3_finalize(statement)
+        return items
     }
 
     func fetchKeyCodes() -> [KeyCode] {
