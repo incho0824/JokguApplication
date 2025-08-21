@@ -31,16 +31,13 @@ struct RegisterView: View {
                 Spacer()
                 Button("Create") {
                     if DatabaseManager.shared.userExists(username) {
-                        self.message = "Username already exists"
-                        self.messageColor = .red
+                        showMessage("Username already exists", color: .red)
                     } else if DatabaseManager.shared.insertUser(username: username, password: password) {
-                        self.message = "User created"
-                        self.messageColor = .green
+                        showMessage("User created", color: .green)
                         self.username = ""
                         self.password = ""
                     } else {
-                        self.message = "Unable to create user"
-                        self.messageColor = .red
+                        showMessage("Unable to create user", color: .red)
                     }
                 }
             }
@@ -48,6 +45,14 @@ struct RegisterView: View {
             .padding(.top)
         }
         .padding()
+    }
+
+    private func showMessage(_ text: String, color: Color) {
+        message = text
+        messageColor = color
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            message = nil
+        }
     }
 }
 
