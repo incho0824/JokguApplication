@@ -42,7 +42,7 @@ struct RegisterView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .onChange(of: username) { _, newValue in
-                    username = newValue.uppercased().filter { $0.isLetter }
+                    username = newValue.filter { $0.isLetter }
                 }
                 .padding(.horizontal)
 
@@ -64,7 +64,7 @@ struct RegisterView: View {
                     let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
                     let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
                     let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
                     if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty || dob == nil {
                         showMessage("All fields are required", color: .red)

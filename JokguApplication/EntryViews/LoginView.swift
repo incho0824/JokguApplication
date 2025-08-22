@@ -17,7 +17,7 @@ struct LoginView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .onChange(of: username) { _, newValue in
-                    username = newValue.uppercased().filter { $0.isLetter }
+                    username = newValue.filter { $0.isLetter }
                 }
                 .padding(.horizontal)
 
@@ -26,7 +26,7 @@ struct LoginView: View {
                 .padding(.horizontal)
 
             Button("Login") {
-                let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
                 if let permit = DatabaseManager.shared.validateUser(username: trimmedUser, password: password) {
                     isLoggedIn = true
                     loginFailed = false
