@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct RegisterView: View {
     @Environment(\.dismiss) var dismiss
@@ -11,9 +12,35 @@ struct RegisterView: View {
     @State private var confirmPassword: String = ""
     @State private var message: String? = nil
     @State private var messageColor: Color = .red
+    @State private var selectedPhoto: PhotosPickerItem? = nil
+    @State private var pictureData: Data? = nil
 
     var body: some View {
         VStack(spacing: 16) {
+            PhotosPicker(selection: $selectedPhoto, matching: .any(of: [.images, .videos])) {
+                if let pictureData,
+                   let uiImage = UIImage(data: pictureData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 100, height: 100)
+                        .clipShape(Circle())
+                } else {
+                    Image("default-profile")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 100, height: 100)
+                        .clipShape(Circle())
+                }
+            }
+            .onChange(of: selectedPhoto) { _, newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                        pictureData = data
+                    }
+                }
+            }
+
             TextField("First Name", text: $firstName)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
@@ -83,7 +110,7 @@ struct RegisterView: View {
                         showMessage("Username must contain letters only", color: .red)
                     } else if DatabaseManager.shared.userExists(trimmedUser) {
                         showMessage("Username already exists", color: .red)
-                    } else if DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!)) {
+                    } else if DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData()) {
                         showMessage("User created", color: .green)
                         self.firstName = ""
                         self.lastName = ""
@@ -92,6 +119,8 @@ struct RegisterView: View {
                         self.username = ""
                         self.password = ""
                         self.confirmPassword = ""
+                        self.selectedPhoto = nil
+                        self.pictureData = nil
                         dismiss()
                     } else {
                         showMessage("Unable to create user", color: .red)

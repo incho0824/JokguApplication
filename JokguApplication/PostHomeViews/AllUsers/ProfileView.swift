@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 struct ProfileView: View {
     @Environment(\.dismiss) var dismiss
@@ -12,11 +13,37 @@ struct ProfileView: View {
     @State private var confirmPassword: String = ""
     @State private var message: String? = nil
     @State private var messageColor: Color = .red
+    @State private var selectedPhoto: PhotosPickerItem? = nil
+    @State private var pictureData: Data? = nil
 
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
+                    PhotosPicker(selection: $selectedPhoto, matching: .any(of: [.images, .videos])) {
+                        if let pictureData,
+                           let uiImage = UIImage(data: pictureData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 100, height: 100)
+                                .clipShape(Circle())
+                        } else {
+                            Image("default-profile")
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 100, height: 100)
+                                .clipShape(Circle())
+                        }
+                    }
+                    .onChange(of: selectedPhoto) { _, newItem in
+                        Task {
+                            if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                                pictureData = data
+                            }
+                        }
+                    }
+
                     TextField("First Name", text: $firstName)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .padding(.horizontal)
@@ -48,7 +75,7 @@ struct ProfileView: View {
 
                         if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || dob == nil {
                             showMessage("All fields are required", color: .red)
-                        } else if DatabaseManager.shared.updateUser(username: username, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!)) {
+                        } else if DatabaseManager.shared.updateUser(username: username, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData) {
                             showMessage("Information updated", color: .green)
                         } else {
                             showMessage("Unable to update information", color: .red)
@@ -107,6 +134,7 @@ struct ProfileView: View {
                     lastName = member.lastName
                     phoneNumber = member.phoneNumber
                     dob = dateFormatter.date(from: member.dob)
+                    pictureData = member.picture
                 }
             }
         }
