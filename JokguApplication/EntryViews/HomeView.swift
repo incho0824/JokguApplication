@@ -3,8 +3,10 @@ import SwiftUI
 struct HomeView: View {
     @Binding var isLoggedIn: Bool
     @Binding var userPermit: Int
+    @Binding var username: String
     @State private var showManagement = false
     @State private var showMembers = false
+    @State private var showProfile = false
 
     var body: some View {
         VStack {
@@ -20,6 +22,14 @@ struct HomeView: View {
                 MemberView()
             }
 
+            Button("Profile") {
+                showProfile = true
+            }
+            .padding()
+            .sheet(isPresented: $showProfile) {
+                ProfileView(username: username)
+            }
+
             if userPermit > 0 {
                 Button("Management") {
                     showManagement = true
@@ -31,6 +41,7 @@ struct HomeView: View {
             }
 
             Button("Logout") {
+                username = ""
                 isLoggedIn = false
             }
             .padding()
@@ -39,5 +50,5 @@ struct HomeView: View {
 }
 
 #Preview {
-    HomeView(isLoggedIn: .constant(true), userPermit: .constant(1))
+    HomeView(isLoggedIn: .constant(true), userPermit: .constant(1), username: .constant("USER"))
 }
