@@ -32,6 +32,10 @@ struct HomeView: View {
                 Button("Cancel", role: .cancel) {}
             }
 
+            Text(management.notification)
+                .padding(.vertical)
+                .padding(.bottom, 20)
+
             Button("Members") {
                 showMembers = true
             }
@@ -53,8 +57,8 @@ struct HomeView: View {
                     showManagement = true
                 }
                 .padding()
-                .sheet(isPresented: $showManagement) {
-                    ManagementView()
+                .sheet(isPresented: $showManagement, onDismiss: loadManagement) {
+                    ManagementView(onSave: loadManagement)
                 }
             }
 
@@ -65,9 +69,6 @@ struct HomeView: View {
             .padding()
 
             Spacer()
-
-            Text(management.notification)
-                .padding()
         }
         .onAppear {
             loadManagement()

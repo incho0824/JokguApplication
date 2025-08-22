@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ManagementView: View {
+    var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: "", notification: "")
     @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: "", notification: "")
@@ -44,6 +45,7 @@ struct ManagementView: View {
                     Button("Save") {
                         DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification)
                         originalKeyCode = keyCode
+                        onSave?()
                     }
                     .disabled(!hasChanges)
                 }
