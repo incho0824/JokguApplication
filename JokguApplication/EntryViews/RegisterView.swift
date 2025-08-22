@@ -1,6 +1,4 @@
 import SwiftUI
-import PhotosUI
-import UIKit
 
 struct RegisterView: View {
     @Environment(\.dismiss) var dismiss
@@ -13,20 +11,9 @@ struct RegisterView: View {
     @State private var confirmPassword: String = ""
     @State private var message: String? = nil
     @State private var messageColor: Color = .red
-    @State private var picture: Image = Image(systemName: "person.crop.circle")
-    @State private var pictureItem: PhotosPickerItem? = nil
 
     var body: some View {
         VStack(spacing: 16) {
-            PhotosPicker(selection: $pictureItem, matching: .images) {
-                picture
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 120, height: 120)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.gray, lineWidth: 1))
-            }
-            .padding(.bottom)
             TextField("First Name", text: $firstName)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
@@ -115,16 +102,6 @@ struct RegisterView: View {
             .padding(.top)
         }
         .padding()
-        .onChange(of: pictureItem) { _, newValue in
-            if let newValue {
-                Task {
-                    if let data = try? await newValue.loadTransferable(type: Data.self),
-                       let uiImage = UIImage(data: data) {
-                        picture = Image(uiImage: uiImage)
-                    }
-                }
-            }
-        }
     }
 
     private func showMessage(_ text: String, color: Color) {
