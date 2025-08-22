@@ -13,6 +13,12 @@ struct LoginView: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            Image("logo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 150, height: 150)
+                .padding(.bottom, 20)
+
             TextField("Username", text: $username)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .textInputAutocapitalization(.never)
