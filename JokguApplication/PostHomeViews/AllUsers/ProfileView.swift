@@ -71,8 +71,10 @@ struct ProfileView: View {
                         .padding(.horizontal)
 
                     Button("Update Password") {
-                        if currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty {
-                            showMessage("All password fields are required", color: .red)
+                        if currentPassword.isEmpty || newPassword.isEmpty {
+                            showMessage("Current and new passwords are required", color: .red)
+                        } else if confirmPassword.isEmpty {
+                            showMessage("Please confirm your new password", color: .red)
                         } else if newPassword != confirmPassword {
                             showMessage("Passwords do not match", color: .red)
                         } else if DatabaseManager.shared.updatePassword(username: username, currentPassword: currentPassword, newPassword: newPassword) {
