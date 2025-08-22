@@ -11,7 +11,7 @@ struct LoginView: View {
     @State private var keyCodeInput: String = ""
     @State private var showRegisterView: Bool = false
     @State private var showAddressPrompt: Bool = false
-    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: "", notification: "")
+    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "")
     @Environment(\.openURL) private var openURL
 
     var body: some View {
