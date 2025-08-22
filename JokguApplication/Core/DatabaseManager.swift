@@ -265,6 +265,35 @@ class DatabaseManager {
         return success
     }
 
+    func deleteUser(id: Int) -> Bool {
+        let query = "DELETE FROM member WHERE id = ?;"
+        var statement: OpaquePointer?
+        var success = false
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(id))
+            if sqlite3_step(statement) == SQLITE_DONE {
+                success = true
+            }
+        }
+        sqlite3_finalize(statement)
+        return success
+    }
+
+    func updatePermit(id: Int, permit: Int) -> Bool {
+        let query = "UPDATE member SET permit = ? WHERE id = ?;"
+        var statement: OpaquePointer?
+        var success = false
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(permit))
+            sqlite3_bind_int(statement, 2, Int32(id))
+            if sqlite3_step(statement) == SQLITE_DONE {
+                success = true
+            }
+        }
+        sqlite3_finalize(statement)
+        return success
+    }
+
     private func hashPassword(_ password: String) -> String {
         let inputData = Data(password.utf8)
         let hashed = SHA256.hash(data: inputData)
