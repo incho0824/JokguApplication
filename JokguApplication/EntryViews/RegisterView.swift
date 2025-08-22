@@ -30,12 +30,20 @@ struct RegisterView: View {
                     phoneNumber = formatPhoneNumber(newValue)
                 }
 
-            DatePicker("Date of Birth", selection: Binding(
+            DatePicker("", selection: Binding(
                 get: { dob ?? Date() },
                 set: { dob = $0 }
             ), displayedComponents: .date)
                 .datePickerStyle(.compact)
                 .environment(\.locale, Locale(identifier: "en_US"))
+                .labelsHidden()
+                .overlay(alignment: .leading) {
+                    if dob == nil {
+                        Text("Date of Birth")
+                            .foregroundColor(.gray)
+                            .padding(.leading, 5)
+                    }
+                }
                 .padding(.horizontal)
 
             TextField("Username", text: $username)
@@ -71,8 +79,10 @@ struct RegisterView: View {
                     let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
                     let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
-                    if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty || dob == nil {
+                    if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty {
                         showMessage("All fields are required", color: .red)
+                    } else if dob == nil {
+                        showMessage("Please select your date of birth", color: .red)
                     } else if confirmPassword.isEmpty {
                         showMessage("Please confirm your password", color: .red)
                     } else if password != confirmPassword {
