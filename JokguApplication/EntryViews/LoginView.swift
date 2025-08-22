@@ -36,6 +36,7 @@ struct LoginView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             }
+            .padding(.bottom, 20)
 
             TextField("Username", text: $username)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
