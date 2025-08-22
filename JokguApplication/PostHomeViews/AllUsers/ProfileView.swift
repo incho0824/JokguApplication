@@ -21,26 +21,19 @@ struct ProfileView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     PhotosPicker(selection: $selectedPhoto, matching: .any(of: [.images, .videos])) {
-                        ZStack(alignment: .bottomTrailing) {
-                            Group {
-                                if let pictureData,
-                                   let uiImage = UIImage(data: pictureData) {
-                                    Image(uiImage: uiImage)
-                                } else {
-                                    Image("default-profile")
-                                }
-                            }
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 100, height: 100)
-                            .clipShape(Circle())
-
-                            Image(systemName: "pencil.circle.fill")
-                                .foregroundColor(.white)
-                                .font(.system(size: 24))
-                                .padding(4)
-                                .background(Circle().fill(Color.black.opacity(0.6)))
-                                .offset(x: -4, y: -4)
+                        if let pictureData,
+                           let uiImage = UIImage(data: pictureData) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 100, height: 100)
+                                .clipShape(Circle())
+                        } else {
+                            Image("default-profile")
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 100, height: 100)
+                                .clipShape(Circle())
                         }
                     }
                     .onChange(of: selectedPhoto) { _, newItem in
@@ -50,10 +43,6 @@ struct ProfileView: View {
                             }
                         }
                     }
-
-                    Text("Tap image to edit")
-                        .font(.caption)
-                        .foregroundColor(.gray)
 
                     TextField("First Name", text: $firstName)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
