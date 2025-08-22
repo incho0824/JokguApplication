@@ -34,7 +34,7 @@ struct RegisterView: View {
                 set: { dob = $0 }
             ), displayedComponents: .date)
                 .datePickerStyle(.compact)
-                .environment(\.locale, Locale(identifier: "en_GB"))
+                .environment(\.locale, Locale(identifier: "en_US"))
                 .padding(.horizontal)
 
             TextField("Username", text: $username)
@@ -97,7 +97,7 @@ struct RegisterView: View {
 
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy"
+        formatter.dateFormat = "MM/dd/yyyy"
         return formatter
     }
 
