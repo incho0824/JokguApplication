@@ -101,7 +101,7 @@ class DatabaseManager {
             sqlite3_bind_text(statement, 5, NSString(string: phoneNumber).utf8String, -1, nil)
             sqlite3_bind_text(statement, 6, NSString(string: dob).utf8String, -1, nil)
             if let picture = picture {
-                picture.withUnsafeBytes { bytes in
+                _ = picture.withUnsafeBytes { bytes in
                     sqlite3_bind_blob(statement, 7, bytes.baseAddress, Int32(picture.count), nil)
                 }
             } else {
@@ -226,7 +226,7 @@ class DatabaseManager {
             sqlite3_bind_text(statement, 3, NSString(string: phoneNumber).utf8String, -1, nil)
             sqlite3_bind_text(statement, 4, NSString(string: dob).utf8String, -1, nil)
             if let picture = picture {
-                picture.withUnsafeBytes { bytes in
+                _ = picture.withUnsafeBytes { bytes in
                     sqlite3_bind_blob(statement, 5, bytes.baseAddress, Int32(picture.count), nil)
                 }
             } else {
