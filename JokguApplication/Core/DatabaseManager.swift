@@ -6,6 +6,9 @@ struct KeyCode: Identifiable {
     let id: Int
     var code: String
     var location: String
+    var welcome: String
+    var youtube: String
+    var notification: String
 }
 
 struct Member: Identifiable {
@@ -37,7 +40,7 @@ class DatabaseManager {
     }
 
     private func createTables() {
-        let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT, location TEXT);"
+        let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT, location TEXT, welcome TEXT, youtube TEXT, notification TEXT);"
         let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, firstname TEXT, lastname TEXT, phonenumber TEXT, dob TEXT, picture BLOB, attendance INTEGER DEFAULT 0, permit INTEGER DEFAULT 0);"
         if sqlite3_exec(db, createManagementTable, nil, nil, nil) != SQLITE_OK {
             print("Could not create management table")
@@ -49,7 +52,7 @@ class DatabaseManager {
                 if sqlite3_step(countStmt) == SQLITE_ROW {
                     let count = sqlite3_column_int(countStmt, 0)
                     if count == 0 {
-                        let insertDefault = "INSERT INTO management (keycode, location) VALUES ('1234', '');"
+                        let insertDefault = "INSERT INTO management (keycode, location, welcome, youtube, notification) VALUES ('1234', '', '', '', '');"
                         sqlite3_exec(db, insertDefault, nil, nil, nil)
                     }
                 }
@@ -61,6 +64,10 @@ class DatabaseManager {
         }
         // attempt to add picture column for existing databases
         sqlite3_exec(db, "ALTER TABLE member ADD COLUMN picture BLOB;", nil, nil, nil)
+        // attempt to add new management columns for existing databases
+        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN welcome TEXT;", nil, nil, nil)
+        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN youtube TEXT;", nil, nil, nil)
+        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN notification TEXT;", nil, nil, nil)
     }
 
     func userExists(_ username: String) -> Bool {
@@ -316,7 +323,7 @@ class DatabaseManager {
     }
 
     func fetchManagementData() -> [KeyCode] {
-        let query = "SELECT id, keycode, location FROM management;"
+        let query = "SELECT id, keycode, location, welcome, youtube, notification FROM management;"
         var statement: OpaquePointer?
         var items: [KeyCode] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -330,20 +337,35 @@ class DatabaseManager {
                 if let lString = sqlite3_column_text(statement, 2) {
                     location = String(cString: lString)
                 }
-                items.append(KeyCode(id: id, code: code, location: location))
+                var welcome = ""
+                if let wString = sqlite3_column_text(statement, 3) {
+                    welcome = String(cString: wString)
+                }
+                var youtube = ""
+                if let yString = sqlite3_column_text(statement, 4) {
+                    youtube = String(cString: yString)
+                }
+                var notification = ""
+                if let nString = sqlite3_column_text(statement, 5) {
+                    notification = String(cString: nString)
+                }
+                items.append(KeyCode(id: id, code: code, location: location, welcome: welcome, youtube: youtube, notification: notification))
             }
         }
         sqlite3_finalize(statement)
         return items
     }
 
-    func updateManagement(id: Int, code: String, location: String) {
-        let query = "UPDATE management SET keycode = ?, location = ? WHERE id = ?;"
+    func updateManagement(id: Int, code: String, location: String, welcome: String, youtube: String, notification: String) {
+        let query = "UPDATE management SET keycode = ?, location = ?, welcome = ?, youtube = ?, notification = ? WHERE id = ?;"
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_text(statement, 1, NSString(string: code).utf8String, -1, nil)
             sqlite3_bind_text(statement, 2, NSString(string: location).utf8String, -1, nil)
-            sqlite3_bind_int(statement, 3, Int32(id))
+            sqlite3_bind_text(statement, 3, NSString(string: welcome).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 4, NSString(string: youtube).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 5, NSString(string: notification).utf8String, -1, nil)
+            sqlite3_bind_int(statement, 6, Int32(id))
             sqlite3_step(statement)
         }
         sqlite3_finalize(statement)
