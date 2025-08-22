@@ -17,20 +17,23 @@ struct HomeView: View {
                 .font(.title)
                 .padding()
 
-            Text(management.welcome)
+            VStack(spacing: 8) {
+                Text(management.welcome)
 
-            Button(action: { showAddressPrompt = true }) {
-                Text(management.address)
-                    .foregroundColor(.blue)
-                    .underline()
-            }
-            .disabled(management.address.isEmpty)
-            .alert("Open in Maps?", isPresented: $showAddressPrompt) {
-                Button("Open") {
-                    openInMaps(address: management.address)
+                Button(action: { showAddressPrompt = true }) {
+                    Text(management.address)
+                        .foregroundColor(.blue)
+                        .underline()
                 }
-                Button("Cancel", role: .cancel) {}
+                .disabled(management.address.isEmpty)
+                .alert("Open in Maps?", isPresented: $showAddressPrompt) {
+                    Button("Open") {
+                        openInMaps(address: management.address)
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
             }
+            .padding(.bottom)
 
             Text(management.notification)
                 .padding(.vertical)
