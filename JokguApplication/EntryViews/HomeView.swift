@@ -7,6 +7,7 @@ struct HomeView: View {
     @State private var showManagement = false
     @State private var showMembers = false
     @State private var showProfile = false
+    @State private var showPayment = false
     @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "")
 
     var body: some View {
@@ -33,6 +34,14 @@ struct HomeView: View {
             .padding()
             .sheet(isPresented: $showProfile) {
                 ProfileView(username: username)
+            }
+
+            Button("Payment") {
+                showPayment = true
+            }
+            .padding()
+            .sheet(isPresented: $showPayment) {
+                PaymentView()
             }
 
             if userPermit > 0 {
