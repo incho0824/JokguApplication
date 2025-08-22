@@ -3,6 +3,7 @@ import SwiftUI
 struct LoginView: View {
     @Binding var isLoggedIn: Bool
     @Binding var userPermit: Int
+    @Binding var loggedInUser: String
     @State private var username: String = ""
     @State private var password: String = ""
     @State private var loginFailed: Bool = false
@@ -28,6 +29,7 @@ struct LoginView: View {
             Button("Login") {
                 let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
                 if let permit = DatabaseManager.shared.validateUser(username: trimmedUser, password: password) {
+                    loggedInUser = trimmedUser
                     isLoggedIn = true
                     loginFailed = false
                     userPermit = permit
@@ -85,5 +87,5 @@ struct LoginView: View {
 }
 
 #Preview {
-    LoginView(isLoggedIn: .constant(false), userPermit: .constant(0))
+    LoginView(isLoggedIn: .constant(false), userPermit: .constant(0), loggedInUser: .constant(""))
 }

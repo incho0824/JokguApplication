@@ -150,6 +150,94 @@ class DatabaseManager {
         return items
     }
 
+    func fetchUser(username: String) -> Member? {
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, attendance, permit FROM member WHERE username = ? LIMIT 1;"
+        var statement: OpaquePointer?
+        var member: Member? = nil
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            let upperUsername = username.uppercased()
+            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
+            if sqlite3_step(statement) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(statement, 0))
+                var uname = ""
+                if let uString = sqlite3_column_text(statement, 1) {
+                    uname = String(cString: uString)
+                }
+                var firstName = ""
+                if let fString = sqlite3_column_text(statement, 2) {
+                    firstName = String(cString: fString)
+                }
+                var lastName = ""
+                if let lString = sqlite3_column_text(statement, 3) {
+                    lastName = String(cString: lString)
+                }
+                var phoneNumber = ""
+                if let phString = sqlite3_column_text(statement, 4) {
+                    phoneNumber = String(cString: phString)
+                }
+                var dob = ""
+                if let dString = sqlite3_column_text(statement, 5) {
+                    dob = String(cString: dString)
+                }
+                let attendance = Int(sqlite3_column_int(statement, 6))
+                let permit = Int(sqlite3_column_int(statement, 7))
+                member = Member(id: id, username: uname, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, attendance: attendance, permit: permit)
+            }
+        }
+        sqlite3_finalize(statement)
+        return member
+    }
+
+    func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String) -> Bool {
+        let query = "UPDATE member SET firstname = ?, lastname = ?, phonenumber = ?, dob = ? WHERE username = ?;"
+        var statement: OpaquePointer?
+        var success = false
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_text(statement, 1, NSString(string: firstName).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 2, NSString(string: lastName).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 3, NSString(string: phoneNumber).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 4, NSString(string: dob).utf8String, -1, nil)
+            let upperUsername = username.uppercased()
+            sqlite3_bind_text(statement, 5, NSString(string: upperUsername).utf8String, -1, nil)
+            if sqlite3_step(statement) == SQLITE_DONE {
+                success = true
+            }
+        }
+        sqlite3_finalize(statement)
+        return success
+    }
+
+    func updatePassword(username: String, currentPassword: String, newPassword: String) -> Bool {
+        let query = "SELECT password FROM member WHERE username = ? LIMIT 1;"
+        var statement: OpaquePointer?
+        var success = false
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            let upperUsername = username.uppercased()
+            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
+            if sqlite3_step(statement) == SQLITE_ROW {
+                var stored = ""
+                if let cString = sqlite3_column_text(statement, 0) {
+                    stored = String(cString: cString)
+                }
+                let currentHashed = hashPassword(currentPassword)
+                if stored == currentHashed {
+                    sqlite3_finalize(statement)
+                    let update = "UPDATE member SET password = ? WHERE username = ?;"
+                    if sqlite3_prepare_v2(db, update, -1, &statement, nil) == SQLITE_OK {
+                        let newHashed = hashPassword(newPassword)
+                        sqlite3_bind_text(statement, 1, NSString(string: newHashed).utf8String, -1, nil)
+                        sqlite3_bind_text(statement, 2, NSString(string: upperUsername).utf8String, -1, nil)
+                        if sqlite3_step(statement) == SQLITE_DONE {
+                            success = true
+                        }
+                    }
+                }
+            }
+        }
+        sqlite3_finalize(statement)
+        return success
+    }
+
     private func hashPassword(_ password: String) -> String {
         let inputData = Data(password.utf8)
         let hashed = SHA256.hash(data: inputData)

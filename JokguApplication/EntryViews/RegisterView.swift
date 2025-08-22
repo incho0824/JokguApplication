@@ -8,6 +8,7 @@ struct RegisterView: View {
     @State private var dob: Date? = nil
     @State private var username: String = ""
     @State private var password: String = ""
+    @State private var confirmPassword: String = ""
     @State private var message: String? = nil
     @State private var messageColor: Color = .red
 
@@ -50,6 +51,10 @@ struct RegisterView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
 
+            SecureField("Confirm Password", text: $confirmPassword)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding(.horizontal)
+
             if let message = message {
                 Text(message)
                     .foregroundColor(messageColor)
@@ -66,8 +71,10 @@ struct RegisterView: View {
                     let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
                     let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
-                    if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty || dob == nil {
+                    if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty || confirmPassword.isEmpty || dob == nil {
                         showMessage("All fields are required", color: .red)
+                    } else if password != confirmPassword {
+                        showMessage("Passwords do not match", color: .red)
                     } else if !trimmedUser.allSatisfy({ $0.isLetter }) {
                         showMessage("Username must contain letters only", color: .red)
                     } else if DatabaseManager.shared.userExists(trimmedUser) {
@@ -80,6 +87,7 @@ struct RegisterView: View {
                         self.dob = nil
                         self.username = ""
                         self.password = ""
+                        self.confirmPassword = ""
                         dismiss()
                     } else {
                         showMessage("Unable to create user", color: .red)
