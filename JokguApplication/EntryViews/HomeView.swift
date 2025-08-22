@@ -19,7 +19,7 @@ struct HomeView: View {
             }
             .padding()
             .sheet(isPresented: $showMembers) {
-                MemberView()
+                MemberView(userPermit: userPermit)
             }
 
             Button("Profile") {
