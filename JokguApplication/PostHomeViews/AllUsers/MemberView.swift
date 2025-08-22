@@ -44,7 +44,7 @@ struct MemberView: View {
                     }
                 }
                 .swipeActions {
-                    if userPermit > 0 {
+                    if userPermit > 0 && member.permit != 2 {
                         Button(role: .destructive) {
                             selectedMember = member
                             activeAlert = .delete
@@ -52,7 +52,7 @@ struct MemberView: View {
                             Label("Delete", systemImage: "trash")
                         }
                     }
-                    if userPermit == 2 {
+                    if userPermit == 2 && member.permit != 2 {
                         Button {
                             selectedMember = member
                             showPermitChoice = true
@@ -84,7 +84,7 @@ struct MemberView: View {
                         title: Text("Confirm Delete"),
                         message: Text("Are you sure you want to delete \(selectedMember?.username ?? "this user")?"),
                         primaryButton: .destructive(Text("Delete")) {
-                            if let member = selectedMember {
+                            if let member = selectedMember, member.permit != 2 {
                                 _ = DatabaseManager.shared.deleteUser(id: member.id)
                                 members = DatabaseManager.shared.fetchMembers()
                             }
@@ -96,7 +96,7 @@ struct MemberView: View {
                         title: Text("Confirm Permit Change"),
                         message: Text("Change permit to \(newPermit) for \(selectedMember?.username ?? "user")?"),
                         primaryButton: .default(Text("Update")) {
-                            if let member = selectedMember {
+                            if let member = selectedMember, member.permit != 2 {
                                 _ = DatabaseManager.shared.updatePermit(id: member.id, permit: newPermit)
                                 members = DatabaseManager.shared.fetchMembers()
                             }
