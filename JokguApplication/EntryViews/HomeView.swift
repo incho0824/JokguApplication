@@ -7,7 +7,9 @@ struct HomeView: View {
     @State private var showManagement = false
     @State private var showMembers = false
     @State private var showProfile = false
-    @State private var management = KeyCode(id: 0, code: "", location: "", welcome: "", youtube: "", notification: "")
+    @State private var showAddressPrompt = false
+    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: "", notification: "")
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack {
@@ -17,7 +19,18 @@ struct HomeView: View {
 
             Text(management.welcome)
 
-            Text(management.location)
+            Button(action: { showAddressPrompt = true }) {
+                Text(management.address)
+                    .foregroundColor(.blue)
+                    .underline()
+            }
+            .disabled(management.address.isEmpty)
+            .alert("Open in Maps?", isPresented: $showAddressPrompt) {
+                Button("Open") {
+                    openInMaps(address: management.address)
+                }
+                Button("Cancel", role: .cancel) {}
+            }
 
             Button("Members") {
                 showMembers = true
@@ -64,6 +77,13 @@ struct HomeView: View {
     private func loadManagement() {
         if let item = DatabaseManager.shared.fetchManagementData().first {
             management = item
+        }
+    }
+
+    private func openInMaps(address: String) {
+        let encoded = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)") {
+            openURL(url)
         }
     }
 }
