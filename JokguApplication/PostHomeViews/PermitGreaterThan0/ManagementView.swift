@@ -2,11 +2,15 @@ import SwiftUI
 
 struct ManagementView: View {
     @Environment(\.dismiss) var dismiss
-    @State private var keyCode = KeyCode(id: 0, code: "", location: "")
-    @State private var originalKeyCode = KeyCode(id: 0, code: "", location: "")
+    @State private var keyCode = KeyCode(id: 0, code: "", location: "", welcome: "", youtube: "", notification: "")
+    @State private var originalKeyCode = KeyCode(id: 0, code: "", location: "", welcome: "", youtube: "", notification: "")
 
     private var hasChanges: Bool {
-        keyCode.code != originalKeyCode.code || keyCode.location != originalKeyCode.location
+        keyCode.code != originalKeyCode.code ||
+        keyCode.location != originalKeyCode.location ||
+        keyCode.welcome != originalKeyCode.welcome ||
+        keyCode.youtube != originalKeyCode.youtube ||
+        keyCode.notification != originalKeyCode.notification
     }
 
     var body: some View {
@@ -16,6 +20,15 @@ struct ManagementView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
 
                 TextField("Location", text: $keyCode.location)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                TextField("Welcome", text: $keyCode.welcome)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                TextField("Youtube", text: $keyCode.youtube)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                TextField("Notification", text: $keyCode.notification)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
 
                 Spacer()
@@ -28,7 +41,7 @@ struct ManagementView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, location: keyCode.location)
+                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, location: keyCode.location, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification)
                         originalKeyCode = keyCode
                     }
                     .disabled(!hasChanges)

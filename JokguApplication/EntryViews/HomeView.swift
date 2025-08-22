@@ -7,12 +7,17 @@ struct HomeView: View {
     @State private var showManagement = false
     @State private var showMembers = false
     @State private var showProfile = false
+    @State private var management = KeyCode(id: 0, code: "", location: "", welcome: "", youtube: "", notification: "")
 
     var body: some View {
         VStack {
             Text("Atlanta Jokgu Association")
                 .font(.title)
                 .padding()
+
+            Text(management.welcome)
+
+            Text(management.location)
 
             Button("Members") {
                 showMembers = true
@@ -45,6 +50,20 @@ struct HomeView: View {
                 isLoggedIn = false
             }
             .padding()
+
+            Spacer()
+
+            Text(management.notification)
+                .padding()
+        }
+        .onAppear {
+            loadManagement()
+        }
+    }
+
+    private func loadManagement() {
+        if let item = DatabaseManager.shared.fetchManagementData().first {
+            management = item
         }
     }
 }
