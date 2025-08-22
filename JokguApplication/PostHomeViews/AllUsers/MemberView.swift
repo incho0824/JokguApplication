@@ -8,8 +8,10 @@ struct MemberView: View {
         NavigationView {
             List(members) { member in
                 VStack(alignment: .leading) {
-                    Text("ID: \(member.id)")
-                    Text("Username: \(member.username)")
+                    Text("\(member.lastName) \(member.firstName)")
+                    Text("DOB: \(member.dob)")
+                    Text("Phone: \(member.phoneNumber)")
+                    Text("Attendance: \(member.attendance)")
                 }
             }
             .navigationTitle("Members")

@@ -25,6 +25,9 @@ struct RegisterView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .keyboardType(.phonePad)
                 .padding(.horizontal)
+                .onChange(of: phoneNumber) { newValue in
+                    phoneNumber = formatPhoneNumber(newValue)
+                }
 
             DatePicker("Date of Birth", selection: Binding(
                 get: { dob ?? Date() },
@@ -72,6 +75,7 @@ struct RegisterView: View {
                         self.dob = nil
                         self.username = ""
                         self.password = ""
+                        dismiss()
                     } else {
                         showMessage("Unable to create user", color: .red)
                     }
@@ -95,6 +99,24 @@ struct RegisterView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "dd/MM/yyyy"
         return formatter
+    }
+
+    private func formatPhoneNumber(_ number: String) -> String {
+        let digits = number.filter { $0.isNumber }
+        let limited = String(digits.prefix(10))
+        let area = limited.prefix(3)
+        let middle = limited.dropFirst(3).prefix(3)
+        let last = limited.dropFirst(6)
+        var result = ""
+        if !area.isEmpty {
+            result += "(" + area
+            if area.count == 3 { result += ")" }
+        }
+        result += middle
+        if !last.isEmpty {
+            result += "-" + last
+        }
+        return result
     }
 }
 
