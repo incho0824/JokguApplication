@@ -65,7 +65,8 @@ class DatabaseManager {
         var statement: OpaquePointer?
         var exists = false
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, NSString(string: username).utf8String, -1, nil)
+            let upperUsername = username.uppercased()
+            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
             if sqlite3_step(statement) == SQLITE_ROW {
                 exists = true
             }
@@ -75,12 +76,13 @@ class DatabaseManager {
     }
 
     func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String) -> Bool {
-        guard !userExists(username) else { return false }
+        let upperUsername = username.uppercased()
+        guard !userExists(upperUsername) else { return false }
         let insertSQL = "INSERT INTO member (username, password, firstname, lastname, phonenumber, dob) VALUES (?, ?, ?, ?, ?, ?);"
         var statement: OpaquePointer?
         var success = false
         if sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, NSString(string: username).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
             let hashedPassword = hashPassword(password)
             sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
             sqlite3_bind_text(statement, 3, NSString(string: firstName).utf8String, -1, nil)
@@ -100,7 +102,8 @@ class DatabaseManager {
         var statement: OpaquePointer?
         var permit: Int? = nil
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, NSString(string: username).utf8String, -1, nil)
+            let upperUsername = username.uppercased()
+            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
             let hashedPassword = hashPassword(password)
             sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
             if sqlite3_step(statement) == SQLITE_ROW {
