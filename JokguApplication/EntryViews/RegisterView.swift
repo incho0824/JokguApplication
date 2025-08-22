@@ -25,7 +25,7 @@ struct RegisterView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .keyboardType(.phonePad)
                 .padding(.horizontal)
-                .onChange(of: phoneNumber) { newValue in
+                .onChange(of: phoneNumber) { _, newValue in
                     phoneNumber = formatPhoneNumber(newValue)
                 }
 
@@ -41,7 +41,7 @@ struct RegisterView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .onChange(of: username) { newValue in
+                .onChange(of: username) { _, newValue in
                     username = newValue.uppercased().filter { $0.isLetter }
                 }
                 .padding(.horizontal)
