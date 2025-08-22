@@ -10,6 +10,9 @@ struct LoginView: View {
     @State private var showKeyCodePrompt: Bool = false
     @State private var keyCodeInput: String = ""
     @State private var showRegisterView: Bool = false
+    @State private var showAddressPrompt: Bool = false
+    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: "", notification: "")
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(spacing: 16) {
@@ -18,6 +21,21 @@ struct LoginView: View {
                 .scaledToFit()
                 .frame(width: 150, height: 150)
                 .padding(.bottom, 20)
+
+            Text(management.welcome)
+
+            Button(action: { showAddressPrompt = true }) {
+                Text(management.address)
+                    .foregroundColor(.blue)
+                    .underline()
+            }
+            .disabled(management.address.isEmpty)
+            .alert("Open in Maps?", isPresented: $showAddressPrompt) {
+                Button("Open") {
+                    openInMaps(address: management.address)
+                }
+                Button("Cancel", role: .cancel) {}
+            }
 
             TextField("Username", text: $username)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -58,6 +76,9 @@ struct LoginView: View {
             }
         }
         .padding()
+        .onAppear {
+            loadManagement()
+        }
         .sheet(isPresented: $showKeyCodePrompt) {
             VStack(spacing: 16) {
                 TextField("Enter key code", text: $keyCodeInput)
@@ -88,6 +109,19 @@ struct LoginView: View {
         }
         .sheet(isPresented: $showRegisterView) {
             RegisterView()
+        }
+    }
+
+    private func loadManagement() {
+        if let item = DatabaseManager.shared.fetchManagementData().first {
+            management = item
+        }
+    }
+
+    private func openInMaps(address: String) {
+        let encoded = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)") {
+            openURL(url)
         }
     }
 }
