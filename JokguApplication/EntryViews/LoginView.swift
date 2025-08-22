@@ -16,7 +16,7 @@ struct LoginView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-                .onChange(of: username) { newValue in
+                .onChange(of: username) { _, newValue in
                     username = newValue.uppercased().filter { $0.isLetter }
                 }
                 .padding(.horizontal)
