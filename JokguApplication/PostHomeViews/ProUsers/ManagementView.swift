@@ -3,8 +3,8 @@ import SwiftUI
 struct ManagementView: View {
     var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
-    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: "", notification: "")
-    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: "", notification: "")
+    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "")
+    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "")
 
     private var hasChanges: Bool {
         keyCode.code != originalKeyCode.code ||
@@ -27,8 +27,11 @@ struct ManagementView: View {
                 TextField("Welcome", text: $keyCode.welcome)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                TextField("Youtube", text: $keyCode.youtube)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                TextField("Youtube", text: Binding(
+                    get: { keyCode.youtube?.absoluteString ?? "" },
+                    set: { keyCode.youtube = URL(string: $0.lowercased()) }
+                ))
+                .textFieldStyle(RoundedBorderTextFieldStyle())
 
                 TextField("Notification", text: $keyCode.notification)
                     .textFieldStyle(RoundedBorderTextFieldStyle())

@@ -7,7 +7,7 @@ struct KeyCode: Identifiable {
     var code: String
     var address: String
     var welcome: String
-    var youtube: String
+    var youtube: URL?
     var notification: String
 }
 
@@ -342,9 +342,10 @@ class DatabaseManager {
                 if let wString = sqlite3_column_text(statement, 3) {
                     welcome = String(cString: wString)
                 }
-                var youtube = ""
+                var youtube: URL? = nil
                 if let yString = sqlite3_column_text(statement, 4) {
-                    youtube = String(cString: yString)
+                    let lowered = String(cString: yString).lowercased()
+                    youtube = URL(string: lowered)
                 }
                 var notification = ""
                 if let nString = sqlite3_column_text(statement, 5) {
@@ -357,14 +358,15 @@ class DatabaseManager {
         return items
     }
 
-    func updateManagement(id: Int, code: String, address: String, welcome: String, youtube: String, notification: String) {
+    func updateManagement(id: Int, code: String, address: String, welcome: String, youtube: URL?, notification: String) {
         let query = "UPDATE management SET keycode = ?, address = ?, welcome = ?, youtube = ?, notification = ? WHERE id = ?;"
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_text(statement, 1, NSString(string: code).utf8String, -1, nil)
             sqlite3_bind_text(statement, 2, NSString(string: address).utf8String, -1, nil)
             sqlite3_bind_text(statement, 3, NSString(string: welcome).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 4, NSString(string: youtube).utf8String, -1, nil)
+            let lowered = (youtube?.absoluteString.lowercased() ?? "")
+            sqlite3_bind_text(statement, 4, NSString(string: lowered).utf8String, -1, nil)
             sqlite3_bind_text(statement, 5, NSString(string: notification).utf8String, -1, nil)
             sqlite3_bind_int(statement, 6, Int32(id))
             sqlite3_step(statement)
