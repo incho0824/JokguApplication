@@ -23,6 +23,11 @@ struct Member: Identifiable {
     var permit: Int
 }
 
+struct UserFields {
+    let username: String
+    var values: [Int]
+}
+
 class DatabaseManager {
     static let shared = DatabaseManager()
     let db: OpaquePointer?
@@ -69,6 +74,10 @@ class DatabaseManager {
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN youtube TEXT;", nil, nil, nil)
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN notification TEXT;", nil, nil, nil)
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN address TEXT;", nil, nil, nil)
+        let createUserFieldsTable = "CREATE TABLE IF NOT EXISTS user_fields(username TEXT PRIMARY KEY, field1 INTEGER, field2 INTEGER, field3 INTEGER, field4 INTEGER, field5 INTEGER, field6 INTEGER, field7 INTEGER, field8 INTEGER, field9 INTEGER, field10 INTEGER, field11 INTEGER, field12 INTEGER);"
+        if sqlite3_exec(db, createUserFieldsTable, nil, nil, nil) != SQLITE_OK {
+            print("Could not create user_fields table")
+        }
     }
 
     func userExists(_ username: String) -> Bool {
@@ -300,6 +309,55 @@ class DatabaseManager {
         }
         sqlite3_finalize(statement)
         return success
+    }
+
+    func saveUserFields(username: String, fields: [Int]) -> Bool {
+        guard !fields.isEmpty && fields.count <= 12 else { return false }
+        for value in fields {
+            guard (0...100).contains(value) else { return false }
+        }
+        let query = "INSERT OR REPLACE INTO user_fields (username, field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);"
+        var statement: OpaquePointer?
+        var success = false
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            let upperUsername = username.uppercased()
+            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
+            for i in 0..<12 {
+                if i < fields.count {
+                    sqlite3_bind_int(statement, Int32(i + 2), Int32(fields[i]))
+                } else {
+                    sqlite3_bind_null(statement, Int32(i + 2))
+                }
+            }
+            if sqlite3_step(statement) == SQLITE_DONE {
+                success = true
+            }
+        }
+        sqlite3_finalize(statement)
+        return success
+    }
+
+    func fetchUserFields(username: String) -> [Int]? {
+        let query = "SELECT field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12 FROM user_fields WHERE username = ? LIMIT 1;"
+        var statement: OpaquePointer?
+        var result: [Int]? = nil
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            let upperUsername = username.uppercased()
+            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
+            if sqlite3_step(statement) == SQLITE_ROW {
+                var values: [Int] = []
+                for i in 0..<12 {
+                    if sqlite3_column_type(statement, Int32(i)) != SQLITE_NULL {
+                        values.append(Int(sqlite3_column_int(statement, Int32(i))))
+                    } else {
+                        break
+                    }
+                }
+                result = values.isEmpty ? nil : values
+            }
+        }
+        sqlite3_finalize(statement)
+        return result
     }
 
     private func hashPassword(_ password: String) -> String {
