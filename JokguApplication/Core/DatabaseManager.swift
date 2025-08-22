@@ -121,6 +121,9 @@ class DatabaseManager {
             }
         }
         sqlite3_finalize(statement)
+        if success {
+            _ = saveUserFields(username: upperUsername, fields: Array(repeating: 0, count: 12))
+        }
         return success
     }
 

@@ -50,7 +50,7 @@ struct HomeView: View {
                 }
                 .padding()
                 .sheet(isPresented: $showManagement, onDismiss: loadManagement) {
-                    ManagementView(onSave: loadManagement)
+                    ManagementView()
                 }
             }
 
