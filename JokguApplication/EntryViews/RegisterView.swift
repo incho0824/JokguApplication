@@ -71,8 +71,10 @@ struct RegisterView: View {
                     let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
                     let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 
-                    if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty || dob == nil {
+                    if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty {
                         showMessage("All fields are required", color: .red)
+                    } else if dob == nil {
+                        showMessage("Date of birth is required", color: .red)
                     } else if confirmPassword.isEmpty {
                         showMessage("Please confirm your password", color: .red)
                     } else if password != confirmPassword {
