@@ -16,6 +16,9 @@ struct LoginView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .onChange(of: username) { newValue in
+                    username = newValue.uppercased().filter { $0.isLetter }
+                }
                 .padding(.horizontal)
 
             SecureField("Password", text: $password)
@@ -23,7 +26,8 @@ struct LoginView: View {
                 .padding(.horizontal)
 
             Button("Login") {
-                if let permit = DatabaseManager.shared.validateUser(username: username, password: password) {
+                let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let permit = DatabaseManager.shared.validateUser(username: trimmedUser, password: password) {
                     isLoggedIn = true
                     loginFailed = false
                     userPermit = permit

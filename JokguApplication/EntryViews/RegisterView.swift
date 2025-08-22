@@ -41,6 +41,9 @@ struct RegisterView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .onChange(of: username) { newValue in
+                    username = newValue.uppercased().filter { $0.isLetter }
+                }
                 .padding(.horizontal)
 
             SecureField("Password", text: $password)
@@ -65,7 +68,9 @@ struct RegisterView: View {
 
                     if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty || dob == nil {
                         showMessage("All fields are required", color: .red)
-                    } else if DatabaseManager.shared.userExists(username) {
+                    } else if !trimmedUser.allSatisfy({ $0.isLetter }) {
+                        showMessage("Username must contain letters only", color: .red)
+                    } else if DatabaseManager.shared.userExists(trimmedUser) {
                         showMessage("Username already exists", color: .red)
                     } else if DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!)) {
                         showMessage("User created", color: .green)
