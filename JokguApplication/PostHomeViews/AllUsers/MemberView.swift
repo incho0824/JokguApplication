@@ -10,7 +10,6 @@ struct MemberView: View {
                 VStack(alignment: .leading) {
                     Text("ID: \(member.id)")
                     Text("Username: \(member.username)")
-                    Text("Password: \(member.password)")
                 }
             }
             .navigationTitle("Members")

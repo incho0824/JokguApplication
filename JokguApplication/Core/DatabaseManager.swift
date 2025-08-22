@@ -1,5 +1,6 @@
 import Foundation
 import SQLite3
+import CryptoKit
 
 struct KeyCode: Identifiable {
     let id: Int
@@ -10,7 +11,6 @@ struct KeyCode: Identifiable {
 struct Member: Identifiable {
     let id: Int
     var username: String
-    var password: String
     var firstName: String
     var lastName: String
     var phoneNumber: String
@@ -81,7 +81,8 @@ class DatabaseManager {
         var success = false
         if sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_text(statement, 1, NSString(string: username).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 2, NSString(string: password).utf8String, -1, nil)
+            let hashedPassword = hashPassword(password)
+            sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
             sqlite3_bind_text(statement, 3, NSString(string: firstName).utf8String, -1, nil)
             sqlite3_bind_text(statement, 4, NSString(string: lastName).utf8String, -1, nil)
             sqlite3_bind_text(statement, 5, NSString(string: phoneNumber).utf8String, -1, nil)
@@ -100,7 +101,8 @@ class DatabaseManager {
         var permit: Int? = nil
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_text(statement, 1, NSString(string: username).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 2, NSString(string: password).utf8String, -1, nil)
+            let hashedPassword = hashPassword(password)
+            sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
             if sqlite3_step(statement) == SQLITE_ROW {
                 permit = Int(sqlite3_column_int(statement, 0))
             }
@@ -110,7 +112,7 @@ class DatabaseManager {
     }
 
     func fetchMembers() -> [Member] {
-        let query = "SELECT id, username, password, firstname, lastname, phonenumber, dob, attendance, permit FROM member;"
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, attendance, permit FROM member;"
         var statement: OpaquePointer?
         var items: [Member] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -120,33 +122,35 @@ class DatabaseManager {
                 if let uString = sqlite3_column_text(statement, 1) {
                     username = String(cString: uString)
                 }
-                var password = ""
-                if let pString = sqlite3_column_text(statement, 2) {
-                    password = String(cString: pString)
-                }
                 var firstName = ""
-                if let fString = sqlite3_column_text(statement, 3) {
+                if let fString = sqlite3_column_text(statement, 2) {
                     firstName = String(cString: fString)
                 }
                 var lastName = ""
-                if let lString = sqlite3_column_text(statement, 4) {
+                if let lString = sqlite3_column_text(statement, 3) {
                     lastName = String(cString: lString)
                 }
                 var phoneNumber = ""
-                if let phString = sqlite3_column_text(statement, 5) {
+                if let phString = sqlite3_column_text(statement, 4) {
                     phoneNumber = String(cString: phString)
                 }
                 var dob = ""
-                if let dString = sqlite3_column_text(statement, 6) {
+                if let dString = sqlite3_column_text(statement, 5) {
                     dob = String(cString: dString)
                 }
-                let attendance = Int(sqlite3_column_int(statement, 7))
-                let permit = Int(sqlite3_column_int(statement, 8))
-                items.append(Member(id: id, username: username, password: password, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, attendance: attendance, permit: permit))
+                let attendance = Int(sqlite3_column_int(statement, 6))
+                let permit = Int(sqlite3_column_int(statement, 7))
+                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, attendance: attendance, permit: permit))
             }
         }
         sqlite3_finalize(statement)
         return items
+    }
+
+    private func hashPassword(_ password: String) -> String {
+        let inputData = Data(password.utf8)
+        let hashed = SHA256.hash(data: inputData)
+        return hashed.map { String(format: "%02x", $0) }.joined()
     }
 
     func fetchKeyCode() -> String? {
