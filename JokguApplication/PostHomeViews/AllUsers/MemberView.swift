@@ -5,6 +5,7 @@ struct MemberView: View {
     @Environment(\.dismiss) var dismiss
     let userPermit: Int
     @State private var members: [Member] = []
+    @State private var sortOption: SortOption = .name
     @State private var selectedMember: Member?
     @State private var newPermit: Int = 0
     @State private var showPermitChoice = false
@@ -17,6 +18,33 @@ struct MemberView: View {
     }
 
     @State private var activeAlert: ActiveAlert?
+
+    private enum SortOption: String, CaseIterable, Identifiable {
+        case name = "Name"
+        case attendance = "Attendance"
+        case age = "Age"
+
+        var id: String { rawValue }
+    }
+
+    private func sortMembers() {
+        switch sortOption {
+        case .name:
+            members.sort { $0.lastName < $1.lastName }
+        case .attendance:
+            members.sort { $0.attendance > $1.attendance }
+        case .age:
+            members.sort { calculateAge(from: $0.dob) > calculateAge(from: $1.dob) }
+        }
+    }
+
+    private func calculateAge(from dob: String) -> Int {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MM/dd/yyyy"
+        guard let birthDate = formatter.date(from: dob) else { return 0 }
+        let ageComponents = Calendar.current.dateComponents([.year], from: birthDate, to: Date())
+        return ageComponents.year ?? 0
+    }
 
     var body: some View {
         NavigationView {
@@ -67,9 +95,21 @@ struct MemberView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Back") { dismiss() }
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Picker("Sort", selection: $sortOption) {
+                        ForEach(SortOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
             }
             .onAppear {
                 members = DatabaseManager.shared.fetchMembers()
+                sortMembers()
+            }
+            .onChange(of: sortOption) { _ in
+                sortMembers()
             }
             .confirmationDialog("Select Permit", isPresented: $showPermitChoice, titleVisibility: .visible) {
                 Button("Permit 0") { newPermit = 0; activeAlert = .permit }
@@ -87,6 +127,7 @@ struct MemberView: View {
                             if let member = selectedMember, member.permit != 2 {
                                 _ = DatabaseManager.shared.deleteUser(id: member.id)
                                 members = DatabaseManager.shared.fetchMembers()
+                                sortMembers()
                             }
                         },
                         secondaryButton: .cancel()
@@ -99,6 +140,7 @@ struct MemberView: View {
                             if let member = selectedMember, member.permit != 2 {
                                 _ = DatabaseManager.shared.updatePermit(id: member.id, permit: newPermit)
                                 members = DatabaseManager.shared.fetchMembers()
+                                sortMembers()
                             }
                         },
                         secondaryButton: .cancel()
