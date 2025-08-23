@@ -41,7 +41,7 @@ struct HomeView: View {
             }
             .padding()
             .sheet(isPresented: $showPayment) {
-                PaymentView()
+                PaymentView(username: username)
             }
 
             if userPermit > 0 {
