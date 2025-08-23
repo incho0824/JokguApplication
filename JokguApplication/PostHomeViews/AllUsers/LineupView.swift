@@ -6,6 +6,9 @@ struct LineupView: View {
     @State private var members: [Member] = []
     @State private var showTodayPrompt = false
     private let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
+    private var userInLineup: Bool {
+        members.contains { $0.username.uppercased() == username.uppercased() }
+    }
 
     var body: some View {
         NavigationView {
@@ -35,10 +38,18 @@ struct LineupView: View {
                     }
                     .padding()
                 }
-                Button("Count me in!") {
-                    showTodayPrompt = true
+                if userInLineup {
+                    Button("Count me out...") {
+                        showTodayPrompt = true
+                    }
+                    .foregroundColor(.red)
+                    .padding()
+                } else {
+                    Button("Count me in!") {
+                        showTodayPrompt = true
+                    }
+                    .padding()
                 }
-                .padding()
             }
             .navigationTitle("Today's Lineup")
             .toolbar {
