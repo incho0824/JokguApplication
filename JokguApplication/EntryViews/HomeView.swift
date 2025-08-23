@@ -6,6 +6,7 @@ struct HomeView: View {
     @Binding var username: String
     @State private var showManagement = false
     @State private var showMembers = false
+    @State private var showLineup = false
     @State private var showProfile = false
     @State private var showPayment = false
     @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0, venmo: "")
@@ -19,6 +20,14 @@ struct HomeView: View {
             Text(management.notification)
                 .padding(.vertical)
                 .padding(.bottom, 20)
+
+            Button("Today's Lineup") {
+                showLineup = true
+            }
+            .padding()
+            .sheet(isPresented: $showLineup) {
+                LineupView()
+            }
 
             Button("Members") {
                 showMembers = true
