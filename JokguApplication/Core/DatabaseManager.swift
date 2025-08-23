@@ -9,6 +9,7 @@ struct KeyCode: Identifiable {
     var welcome: String
     var youtube: URL?
     var notification: String
+    var playwhen: [String]
     var fee: Int
     var venmo: String
 }
@@ -48,7 +49,7 @@ class DatabaseManager {
     }
 
     private func createTables() {
-        let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT, address TEXT, welcome TEXT, youtube TEXT, notification TEXT, fee INTEGER DEFAULT 0, venmo TEXT);"
+        let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT, address TEXT, welcome TEXT, youtube TEXT, notification TEXT, playwhen TEXT, fee INTEGER DEFAULT 0, venmo TEXT);"
         let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, firstname TEXT, lastname TEXT, phonenumber TEXT, dob TEXT, picture BLOB, attendance INTEGER DEFAULT 0, permit INTEGER DEFAULT 0, today INTEGER DEFAULT 0);"
         if sqlite3_exec(db, createManagementTable, nil, nil, nil) != SQLITE_OK {
             print("Could not create management table")
@@ -60,7 +61,7 @@ class DatabaseManager {
                 if sqlite3_step(countStmt) == SQLITE_ROW {
                     let count = sqlite3_column_int(countStmt, 0)
                     if count == 0 {
-                        let insertDefault = "INSERT INTO management (keycode, address, welcome, youtube, notification, fee, venmo) VALUES ('1234', '', '', '', '', 0, '');"
+                        let insertDefault = "INSERT INTO management (keycode, address, welcome, youtube, notification, playwhen, fee, venmo) VALUES ('1234', '', '', '', '', '', 0, '');"
                         sqlite3_exec(db, insertDefault, nil, nil, nil)
                     }
                 }
@@ -81,6 +82,7 @@ class DatabaseManager {
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN address TEXT;", nil, nil, nil)
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN fee INTEGER DEFAULT 0;", nil, nil, nil)
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN venmo TEXT;", nil, nil, nil)
+        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN playwhen TEXT;", nil, nil, nil)
         let createUserFieldsTable = "CREATE TABLE IF NOT EXISTS user_fields(username TEXT PRIMARY KEY, field1 INTEGER, field2 INTEGER, field3 INTEGER, field4 INTEGER, field5 INTEGER, field6 INTEGER, field7 INTEGER, field8 INTEGER, field9 INTEGER, field10 INTEGER, field11 INTEGER, field12 INTEGER);"
         if sqlite3_exec(db, createUserFieldsTable, nil, nil, nil) != SQLITE_OK {
             print("Could not create user_fields table")
@@ -436,7 +438,7 @@ class DatabaseManager {
     }
 
     func fetchManagementData() -> [KeyCode] {
-        let query = "SELECT id, keycode, address, welcome, youtube, notification, fee, venmo FROM management;"
+        let query = "SELECT id, keycode, address, welcome, youtube, notification, playwhen, fee, venmo FROM management;"
         var statement: OpaquePointer?
         var items: [KeyCode] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -463,20 +465,25 @@ class DatabaseManager {
                 if let nString = sqlite3_column_text(statement, 5) {
                     notification = String(cString: nString)
                 }
-                let fee = Int(sqlite3_column_int(statement, 6))
+                var playwhen: [String] = []
+                if let pString = sqlite3_column_text(statement, 6) {
+                    let raw = String(cString: pString)
+                    playwhen = raw.split(separator: ",").map { String($0) }
+                }
+                let fee = Int(sqlite3_column_int(statement, 7))
                 var venmo = ""
-                if let vString = sqlite3_column_text(statement, 7) {
+                if let vString = sqlite3_column_text(statement, 8) {
                     venmo = String(cString: vString)
                 }
-                items.append(KeyCode(id: id, code: code, address: address, welcome: welcome, youtube: youtube, notification: notification, fee: fee, venmo: venmo))
+                items.append(KeyCode(id: id, code: code, address: address, welcome: welcome, youtube: youtube, notification: notification, playwhen: playwhen, fee: fee, venmo: venmo))
             }
         }
         sqlite3_finalize(statement)
         return items
     }
 
-    func updateManagement(id: Int, code: String, address: String, welcome: String, youtube: URL?, notification: String, fee: Int, venmo: String) {
-        let query = "UPDATE management SET keycode = ?, address = ?, welcome = ?, youtube = ?, notification = ?, fee = ?, venmo = ? WHERE id = ?;"
+    func updateManagement(id: Int, code: String, address: String, welcome: String, youtube: URL?, notification: String, playwhen: [String], fee: Int, venmo: String) {
+        let query = "UPDATE management SET keycode = ?, address = ?, welcome = ?, youtube = ?, notification = ?, playwhen = ?, fee = ?, venmo = ? WHERE id = ?;"
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_text(statement, 1, NSString(string: code).utf8String, -1, nil)
@@ -485,9 +492,10 @@ class DatabaseManager {
             let lowered = (youtube?.absoluteString.lowercased() ?? "")
             sqlite3_bind_text(statement, 4, NSString(string: lowered).utf8String, -1, nil)
             sqlite3_bind_text(statement, 5, NSString(string: notification).utf8String, -1, nil)
-            sqlite3_bind_int(statement, 6, Int32(fee))
-            sqlite3_bind_text(statement, 7, NSString(string: venmo).utf8String, -1, nil)
-            sqlite3_bind_int(statement, 8, Int32(id))
+            sqlite3_bind_text(statement, 6, NSString(string: playwhen.joined(separator: ",")).utf8String, -1, nil)
+            sqlite3_bind_int(statement, 7, Int32(fee))
+            sqlite3_bind_text(statement, 8, NSString(string: venmo).utf8String, -1, nil)
+            sqlite3_bind_int(statement, 9, Int32(id))
             sqlite3_step(statement)
         }
         sqlite3_finalize(statement)
