@@ -70,7 +70,7 @@ struct RegisterView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .onChange(of: username) { _, newValue in
-                    username = newValue.filter { $0.isLetter }
+                    username = newValue.filter { $0.isLetter || $0.isNumber }
                 }
                 .padding(.horizontal)
 
@@ -106,8 +106,8 @@ struct RegisterView: View {
                         showMessage("Please confirm your password", color: .red)
                     } else if password != confirmPassword {
                         showMessage("Passwords do not match", color: .red)
-                    } else if !trimmedUser.allSatisfy({ $0.isLetter }) {
-                        showMessage("Username must contain letters only", color: .red)
+                    } else if !trimmedUser.allSatisfy({ $0.isLetter || $0.isNumber }) {
+                        showMessage("Username must contain letters and numbers only", color: .red)
                     } else if DatabaseManager.shared.userExists(trimmedUser) {
                         showMessage("Username already exists", color: .red)
                     } else if DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData()) {
