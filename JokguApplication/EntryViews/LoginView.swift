@@ -19,7 +19,7 @@ struct LoginView: View {
             Image("logo")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 200, height: 200)
+                .frame(width: UIScreen.main.bounds.width * 0.9)
                 .padding(.bottom, 20)
 
             Text(management.welcome)
