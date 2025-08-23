@@ -8,11 +8,16 @@ struct PayStatusView: View {
 
     var body: some View {
         NavigationView {
-            ScrollView([.vertical, .horizontal]) {
-                VStack(alignment: .leading, spacing: 0) {
-                    headerRow()
-                    ForEach(0..<months.count, id: \.self) { index in
-                        rowView(for: index)
+            ScrollView(.vertical) {
+                HStack(spacing: 0) {
+                    leftColumn()
+                    ScrollView(.horizontal) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            headerRow()
+                            ForEach(0..<months.count, id: \.self) { index in
+                                rowView(for: index)
+                            }
+                        }
                     }
                 }
             }
@@ -28,11 +33,8 @@ struct PayStatusView: View {
 
     private func headerRow() -> some View {
         HStack(spacing: 0) {
-            Text("")
-                .frame(width: 80, height: 40)
-                .border(Color.gray)
             ForEach(members) { member in
-                Text(member.username)
+                Text("\(member.lastName) \(member.firstName)")
                     .frame(width: 120, height: 40)
                     .background(Color.gray.opacity(0.2))
                     .border(Color.gray)
@@ -42,15 +44,25 @@ struct PayStatusView: View {
 
     private func rowView(for monthIndex: Int) -> some View {
         HStack(spacing: 0) {
-            Text(months[monthIndex])
-                .frame(width: 80, height: 40, alignment: .leading)
-                .border(Color.gray)
             ForEach(members) { member in
                 let fields = userFields[member.username] ?? []
                 let value = monthIndex < fields.count ? fields[monthIndex] : 0
                 Text(value > 0 ? "\(value)" : "-")
                     .frame(width: 120, height: 40)
                     .background(value > 0 ? Color.green.opacity(0.3) : Color.clear)
+                    .border(Color.gray)
+            }
+        }
+    }
+
+    private func leftColumn() -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("")
+                .frame(width: 80, height: 40)
+                .border(Color.gray)
+            ForEach(0..<months.count, id: \.self) { index in
+                Text(months[index])
+                    .frame(width: 80, height: 40, alignment: .leading)
                     .border(Color.gray)
             }
         }
