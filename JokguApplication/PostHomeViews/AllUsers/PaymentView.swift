@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct PaymentView: View {
     @Environment(\.dismiss) var dismiss
@@ -11,6 +12,7 @@ struct PaymentView: View {
     private let currentMonth = Calendar.current.component(.month, from: Date())
     private enum PaymentOption { case selected, due }
     @State private var paymentSelection: PaymentOption = .selected
+    @State private var venmoAccount: String = ""
 
     var body: some View {
         NavigationView {
@@ -67,6 +69,18 @@ struct PaymentView: View {
                 }
                 .font(.headline)
                 .padding()
+
+                Button(action: payWithVenmo) {
+                    Text("Pay with Venmo")
+                        .bold()
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .padding()
+                .disabled(amountToPay == 0 || venmoAccount.isEmpty)
             }
             .navigationTitle("Payment")
             .toolbar {
@@ -88,6 +102,10 @@ struct PaymentView: View {
         return max(0, month * fee - paid)
     }
 
+    private var amountToPay: Int {
+        paymentSelection == .selected ? selectedTotal : dueTotal
+    }
+
     private func loadData() {
         if let fetched = DatabaseManager.shared.fetchUserFields(username: username) {
             var filled = Array(repeating: 0, count: 12)
@@ -98,6 +116,18 @@ struct PaymentView: View {
         }
         if let management = DatabaseManager.shared.fetchManagementData().first {
             fee = management.fee
+            venmoAccount = management.venmo
+        }
+    }
+
+    private func payWithVenmo() {
+        let amount = amountToPay
+        guard amount > 0, !venmoAccount.isEmpty else { return }
+        let note = "Jokgu fee"
+        let encodedNote = note.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let urlString = "venmo://pay?txn=pay&recipients=\(venmoAccount)&amount=\(amount)&note=\(encodedNote)"
+        if let url = URL(string: urlString) {
+            UIApplication.shared.open(url)
         }
     }
 }
