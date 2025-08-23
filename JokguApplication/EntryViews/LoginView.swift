@@ -15,78 +15,91 @@ struct LoginView: View {
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image("logo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: UIScreen.main.bounds.width * 0.9)
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 1.0, green: 0.85, blue: 0.7),
+                    Color(red: 1.0, green: 0.65, blue: 0.45)
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                Image("logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: UIScreen.main.bounds.width * 0.9)
+                    .padding(.bottom, 20)
+
+                Text(management.welcome)
+                    .foregroundColor(.white)
+
+                Button(action: { showAddressPrompt = true }) {
+                    Text(management.address)
+                        .foregroundColor(.blue)
+                        .underline()
+                }
+                .disabled(management.address.isEmpty)
+                .alert("Open in Maps?", isPresented: $showAddressPrompt) {
+                    Button("Open") {
+                        openInMaps(address: management.address)
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
                 .padding(.bottom, 20)
 
-            Text(management.welcome)
+                TextField("Username", text: $username)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .onChange(of: username) { _, newValue in
+                        username = newValue.filter { $0.isLetter }
+                    }
+                    .padding(.horizontal)
 
-            Button(action: { showAddressPrompt = true }) {
-                Text(management.address)
-                    .foregroundColor(.blue)
-                    .underline()
-            }
-            .disabled(management.address.isEmpty)
-            .alert("Open in Maps?", isPresented: $showAddressPrompt) {
-                Button("Open") {
-                    openInMaps(address: management.address)
-                }
-                Button("Cancel", role: .cancel) {}
-            }
-            .padding(.bottom, 20)
+                SecureField("Password", text: $password)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
 
-            TextField("Username", text: $username)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .onChange(of: username) { _, newValue in
-                    username = newValue.filter { $0.isLetter }
-                }
-                .padding(.horizontal)
-
-            SecureField("Password", text: $password)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-
-            Button("Login") {
-                let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-                if let permit = DatabaseManager.shared.validateUser(username: trimmedUser, password: password) {
-                    loggedInUser = trimmedUser
-                    isLoggedIn = true
-                    loginFailed = false
-                    userPermit = permit
-                } else {
-                    loginFailed = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                Button("Login") {
+                    let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                    if let permit = DatabaseManager.shared.validateUser(username: trimmedUser, password: password) {
+                        loggedInUser = trimmedUser
+                        isLoggedIn = true
                         loginFailed = false
+                        userPermit = permit
+                    } else {
+                        loginFailed = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            loginFailed = false
+                        }
                     }
                 }
-            }
-            .padding(.top)
+                .padding(.top)
 
-            Button("Register") {
-                showKeyCodePrompt = true
-            }
+                Button("Register") {
+                    showKeyCodePrompt = true
+                }
 
-            if loginFailed {
-                Text("Invalid credentials")
-                    .foregroundColor(.red)
+                if loginFailed {
+                    Text("Invalid credentials")
+                        .foregroundColor(.red)
+                }
             }
-        }
-        .frame(maxHeight: .infinity, alignment: .top)
-        .padding(.horizontal)
-        .overlay(alignment: .bottomTrailing) {
-            if let url = management.youtube {
-                Button {
-                    openURL(url)
-                } label: {
-                    Image("youtube-logo")
-                        .resizable()
-                        .frame(width: 40, height: 30)
-                        .padding()
+            .frame(maxHeight: .infinity, alignment: .top)
+            .padding(.horizontal)
+            .overlay(alignment: .bottomTrailing) {
+                if let url = management.youtube {
+                    Button {
+                        openURL(url)
+                    } label: {
+                        Image("youtube-logo")
+                            .resizable()
+                            .frame(width: 40, height: 30)
+                            .padding()
+                    }
                 }
             }
         }

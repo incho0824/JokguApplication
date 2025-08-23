@@ -15,7 +15,14 @@ struct HomeView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(gradient: Gradient(colors: [Color.blue.opacity(0.6), Color.purple]), startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 1.0, green: 0.85, blue: 0.7),
+                    Color(red: 1.0, green: 0.65, blue: 0.45)
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
                 .ignoresSafeArea()
 
             ScrollView {
@@ -23,6 +30,8 @@ struct HomeView: View {
                     Text("Atlanta Jokgu Association")
                         .font(.largeTitle.bold())
                         .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .padding(.top, 40)
 
                     Text(management.notification)
