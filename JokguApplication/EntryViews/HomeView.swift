@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import UIKit
 
 struct HomeView: View {
     @Binding var isLoggedIn: Bool
@@ -144,9 +145,12 @@ struct HomeView: View {
         formatter.dateFormat = "EEEE"
         let todayName = formatter.string(from: Date())
         if management.playwhen.contains(todayName) {
+            UIApplication.shared.applicationIconBadgeNumber = 1
             if let user = DatabaseManager.shared.fetchUser(username: username), user.today == 0 {
                 showTodayPrompt = true
             }
+        } else {
+            UIApplication.shared.applicationIconBadgeNumber = 0
         }
     }
 
