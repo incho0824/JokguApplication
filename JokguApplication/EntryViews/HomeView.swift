@@ -80,11 +80,11 @@ struct HomeView: View {
         }
         .alert("Jokgu Today—YOU IN?", isPresented: $showTodayPrompt) {
             Button("Yes") {
-                DatabaseManager.shared.updateToday(username: username, value: 1)
+                _ = DatabaseManager.shared.updateToday(username: username, value: 1)
                 showTodayPrompt = false
             }
             Button("No") {
-                DatabaseManager.shared.updateToday(username: username, value: 2)
+                _ = DatabaseManager.shared.updateToday(username: username, value: 2)
                 showTodayPrompt = false
             }
         }
