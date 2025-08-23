@@ -7,6 +7,7 @@ struct PayStatusView: View {
     @State private var userFields: [String: [String]] = [:]
     @State private var exportURL: URL? = nil
     @State private var showShareSheet = false
+    @State private var fee: Int = 0
     private let months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
     var body: some View {
@@ -76,7 +77,7 @@ struct PayStatusView: View {
                 TextField("-", text: binding)
                     .frame(width: 120, height: 40)
                     .multilineTextAlignment(.center)
-                    .background((Int(binding.wrappedValue) ?? 0) > 0 ? Color.green.opacity(0.3) : Color.clear)
+                    .background((Int(binding.wrappedValue) ?? 0) >= fee ? Color.green.opacity(0.3) : Color.red.opacity(0.3))
                     .border(Color.gray)
                     .keyboardType(.numberPad)
             }
@@ -112,6 +113,9 @@ struct PayStatusView: View {
             }
         }
         userFields = dict
+        if let management = DatabaseManager.shared.fetchManagementData().first {
+            fee = management.fee
+        }
     }
 
     private func downloadCSV() {
