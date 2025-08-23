@@ -3,6 +3,7 @@ import SwiftUI
 struct ManagementView: View {
     var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
+    let userPermit: Int
     @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0)
     @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0)
     
@@ -77,7 +78,7 @@ struct ManagementView: View {
             .onAppear { loadData() }
         }
         .sheet(isPresented: $showPayStatus) {
-            PayStatusView()
+            PayStatusView(userPermit: userPermit)
         }
     }
     
@@ -91,5 +92,5 @@ struct ManagementView: View {
 }
 
 #Preview {
-    ManagementView()
+    ManagementView(userPermit: 9)
 }
