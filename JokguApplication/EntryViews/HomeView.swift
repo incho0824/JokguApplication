@@ -14,64 +14,94 @@ struct HomeView: View {
     @State private var showTodayPrompt = false
 
     var body: some View {
-        VStack {
-            Text("Atlanta Jokgu Association")
-                .font(.title)
-                .padding()
+        ZStack {
+            LinearGradient(gradient: Gradient(colors: [Color.blue.opacity(0.6), Color.purple]), startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
 
-            Text(management.notification)
-                .padding(.vertical)
-                .padding(.bottom, 20)
+            ScrollView {
+                VStack(spacing: 24) {
+                    Text("Atlanta Jokgu Association")
+                        .font(.largeTitle.bold())
+                        .foregroundColor(.white)
+                        .padding(.top, 40)
 
-            Button("Today's Lineup") {
-                showLineup = true
-            }
-            .padding()
-            .sheet(isPresented: $showLineup) {
-                LineupView(username: username)
-            }
+                    Text(management.notification)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.black.opacity(0.3))
+                        .cornerRadius(12)
+                        .padding(.horizontal)
 
-            Button("Members") {
-                showMembers = true
-            }
-            .padding()
-            .sheet(isPresented: $showMembers) {
-                MemberView(userPermit: userPermit)
-            }
+                    Button {
+                        showLineup = true
+                    } label: {
+                        Label("Today's Lineup", systemImage: "list.bullet")
+                    }
+                    .buttonStyle(HomeButtonStyle())
+                    .sheet(isPresented: $showLineup) {
+                        LineupView(username: username)
+                    }
+                    .padding(.horizontal)
 
-            Button("Profile") {
-                showProfile = true
-            }
-            .padding()
-            .sheet(isPresented: $showProfile) {
-                ProfileView(username: username)
-            }
+                    Button {
+                        showMembers = true
+                    } label: {
+                        Label("Members", systemImage: "person.3")
+                    }
+                    .buttonStyle(HomeButtonStyle())
+                    .sheet(isPresented: $showMembers) {
+                        MemberView(userPermit: userPermit)
+                    }
+                    .padding(.horizontal)
 
-            Button("Payment") {
-                showPayment = true
-            }
-            .padding()
-            .sheet(isPresented: $showPayment) {
-                PaymentView(username: username)
-            }
+                    Button {
+                        showProfile = true
+                    } label: {
+                        Label("Profile", systemImage: "person.circle")
+                    }
+                    .buttonStyle(HomeButtonStyle())
+                    .sheet(isPresented: $showProfile) {
+                        ProfileView(username: username)
+                    }
+                    .padding(.horizontal)
 
-            if userPermit > 0 {
-                Button("Management") {
-                    showManagement = true
+                    Button {
+                        showPayment = true
+                    } label: {
+                        Label("Payment", systemImage: "creditcard")
+                    }
+                    .buttonStyle(HomeButtonStyle())
+                    .sheet(isPresented: $showPayment) {
+                        PaymentView(username: username)
+                    }
+                    .padding(.horizontal)
+
+                    if userPermit > 0 {
+                        Button {
+                            showManagement = true
+                        } label: {
+                            Label("Management", systemImage: "gearshape")
+                        }
+                        .buttonStyle(HomeButtonStyle())
+                        .sheet(isPresented: $showManagement, onDismiss: loadManagement) {
+                            ManagementView(userPermit: userPermit)
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Button {
+                        username = ""
+                        isLoggedIn = false
+                    } label: {
+                        Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                    .buttonStyle(HomeButtonStyle())
+                    .padding(.top, 10)
+                    .padding(.horizontal)
                 }
-                .padding()
-                .sheet(isPresented: $showManagement, onDismiss: loadManagement) {
-                    ManagementView(userPermit: userPermit)
-                }
+                .padding(.bottom, 40)
             }
-
-            Button("Logout") {
-                username = ""
-                isLoggedIn = false
-            }
-            .padding()
-
-            Spacer()
         }
         .onAppear {
             loadManagement()
@@ -110,6 +140,19 @@ struct HomeView: View {
         }
     }
 
+}
+
+private struct HomeButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.white.opacity(configuration.isPressed ? 0.6 : 0.9))
+            .foregroundColor(.black)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+    }
 }
 
 #Preview {
