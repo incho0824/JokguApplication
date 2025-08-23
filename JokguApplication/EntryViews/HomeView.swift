@@ -6,6 +6,7 @@ struct HomeView: View {
     @Binding var isLoggedIn: Bool
     @Binding var userPermit: Int
     @Binding var username: String
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showManagement = false
     @State private var showMembers = false
     @State private var showLineup = false
@@ -115,9 +116,15 @@ struct HomeView: View {
             }
         }
         .onAppear {
+            UIApplication.shared.applicationIconBadgeNumber = 0
             loadManagement()
             performDailyResetIfNeeded()
             checkTodayStatus()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active {
+                UIApplication.shared.applicationIconBadgeNumber = 0
+            }
         }
         .todayPrompt(isPresented: $showTodayPrompt, username: username)
     }
@@ -144,13 +151,10 @@ struct HomeView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE"
         let todayName = formatter.string(from: Date())
-        if management.playwhen.contains(todayName) {
-            UIApplication.shared.applicationIconBadgeNumber = 1
-            if let user = DatabaseManager.shared.fetchUser(username: username), user.today == 0 {
-                showTodayPrompt = true
-            }
-        } else {
-            UIApplication.shared.applicationIconBadgeNumber = 0
+        if management.playwhen.contains(todayName),
+           let user = DatabaseManager.shared.fetchUser(username: username),
+           user.today == 0 {
+            showTodayPrompt = true
         }
     }
 
