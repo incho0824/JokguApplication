@@ -108,7 +108,7 @@ struct MemberView: View {
                 members = DatabaseManager.shared.fetchMembers()
                 sortMembers()
             }
-            .onChange(of: sortOption) { _ in
+            .onChange(of: sortOption) {
                 sortMembers()
             }
             .confirmationDialog("Select Permit", isPresented: $showPermitChoice, titleVisibility: .visible) {
