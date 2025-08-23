@@ -367,6 +367,27 @@ class DatabaseManager {
         return success
     }
 
+    func updateToday(username: String, value: Int) -> Bool {
+        let query = "UPDATE member SET today = ? WHERE username = ?;"
+        var statement: OpaquePointer?
+        var success = false
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(value))
+            let upperUsername = username.uppercased()
+            sqlite3_bind_text(statement, 2, NSString(string: upperUsername).utf8String, -1, nil)
+            if sqlite3_step(statement) == SQLITE_DONE {
+                success = true
+            }
+        }
+        sqlite3_finalize(statement)
+        return success
+    }
+
+    func resetTodayForAll() {
+        let query = "UPDATE member SET today = 0;"
+        sqlite3_exec(db, query, nil, nil, nil)
+    }
+
     func saveUserFields(username: String, fields: [Int]) -> Bool {
         guard !fields.isEmpty && fields.count <= 12 else { return false }
         for value in fields {
