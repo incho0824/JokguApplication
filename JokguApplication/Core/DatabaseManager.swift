@@ -384,8 +384,10 @@ class DatabaseManager {
     }
 
     func resetTodayForAll() {
-        let query = "UPDATE member SET today = 0;"
-        sqlite3_exec(db, query, nil, nil, nil)
+        let attendanceQuery = "UPDATE member SET attendance = attendance + 1 WHERE today = 1;"
+        sqlite3_exec(db, attendanceQuery, nil, nil, nil)
+        let resetQuery = "UPDATE member SET today = 0;"
+        sqlite3_exec(db, resetQuery, nil, nil, nil)
     }
 
     func saveUserFields(username: String, fields: [Int]) -> Bool {
