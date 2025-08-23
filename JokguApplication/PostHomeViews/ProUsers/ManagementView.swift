@@ -3,15 +3,16 @@ import SwiftUI
 struct ManagementView: View {
     var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
-    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "")
-    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "")
+    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0)
+    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0)
     
     private var hasChanges: Bool {
         keyCode.code != originalKeyCode.code ||
         keyCode.address != originalKeyCode.address ||
         keyCode.welcome != originalKeyCode.welcome ||
         keyCode.youtube != originalKeyCode.youtube ||
-        keyCode.notification != originalKeyCode.notification
+        keyCode.notification != originalKeyCode.notification ||
+        keyCode.fee != originalKeyCode.fee
     }
     
     @State private var showPayStatus = false
@@ -19,25 +20,41 @@ struct ManagementView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 16) {
-                TextField("Keycode", text: $keyCode.code)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Keycode").font(.caption)
+                    TextField("Keycode", text: $keyCode.code)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Address").font(.caption)
+                    TextField("Address", text: $keyCode.address)
+                        .textContentType(.fullStreetAddress)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Welcome").font(.caption)
+                    TextField("Welcome", text: $keyCode.welcome)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Youtube").font(.caption)
+                    TextField("Youtube", text: Binding(
+                        get: { keyCode.youtube?.absoluteString ?? "" },
+                        set: { keyCode.youtube = URL(string: $0.lowercased()) }
+                    ))
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                
-                TextField("Address", text: $keyCode.address)
-                    .textContentType(.fullStreetAddress)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                
-                TextField("Welcome", text: $keyCode.welcome)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                
-                TextField("Youtube", text: Binding(
-                    get: { keyCode.youtube?.absoluteString ?? "" },
-                    set: { keyCode.youtube = URL(string: $0.lowercased()) }
-                ))
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                
-                TextField("Notification", text: $keyCode.notification)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Notification").font(.caption)
+                    TextField("Notification", text: $keyCode.notification)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Fee").font(.caption)
+                    TextField("Fee", value: $keyCode.fee, formatter: NumberFormatter())
+                        .keyboardType(.numberPad)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
                 Button("Membership") { showPayStatus = true }
                     .padding()
                 Spacer()
@@ -50,7 +67,7 @@ struct ManagementView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification)
+                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, fee: keyCode.fee)
                         originalKeyCode = keyCode
                         onSave?()
                     }
