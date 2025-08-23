@@ -8,6 +8,8 @@ struct PaymentView: View {
     @State private var selectedIndices: Set<Int> = []
     private let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
     private let columns = Array(repeating: GridItem(.flexible()), count: 3)
+    private enum PaymentOption { case selected, due }
+    @State private var paymentSelection: PaymentOption = .selected
 
     var body: some View {
         NavigationView {
@@ -28,7 +30,11 @@ struct PaymentView: View {
                             .padding()
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
-                                    .fill(selectedIndices.contains(index) ? Color.blue.opacity(0.3) : Color.gray.opacity(0.1))
+                                    .fill(
+                                        fields[index] == fee
+                                            ? Color.green.opacity(0.3)
+                                            : (selectedIndices.contains(index) ? Color.blue.opacity(0.3) : Color.gray.opacity(0.1))
+                                    )
                             )
                             .onTapGesture {
                                 guard fields[index] < fee else { return }
@@ -42,9 +48,22 @@ struct PaymentView: View {
                     }
                     .padding()
                 }
-                Text("Selected amount = $\(selectedTotal)")
-                    .font(.headline)
-                    .padding()
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: paymentSelection == .selected ? "largecircle.fill.circle" : "circle")
+                        Text("Selected amount = $\(selectedTotal)")
+                        Spacer()
+                    }
+                    .onTapGesture { paymentSelection = .selected }
+                    HStack {
+                        Image(systemName: paymentSelection == .due ? "largecircle.fill.circle" : "circle")
+                        Text("Due amount = $\(dueTotal)")
+                        Spacer()
+                    }
+                    .onTapGesture { paymentSelection = .due }
+                }
+                .font(.headline)
+                .padding()
             }
             .navigationTitle("Payment")
             .toolbar {
@@ -58,6 +77,12 @@ struct PaymentView: View {
 
     private var selectedTotal: Int {
         selectedIndices.reduce(0) { $0 + max(0, fee - fields[$1]) }
+    }
+
+    private var dueTotal: Int {
+        let month = Calendar.current.component(.month, from: Date())
+        let paid = fields.prefix(month).reduce(0, +)
+        return max(0, month * fee - paid)
     }
 
     private func loadData() {
