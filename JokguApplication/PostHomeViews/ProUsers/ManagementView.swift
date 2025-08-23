@@ -4,8 +4,8 @@ struct ManagementView: View {
     var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     let userPermit: Int
-    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0)
-    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0)
+    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0, venmo: "")
+    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0, venmo: "")
     
     private var hasChanges: Bool {
         keyCode.code != originalKeyCode.code ||
@@ -13,7 +13,8 @@ struct ManagementView: View {
         keyCode.welcome != originalKeyCode.welcome ||
         keyCode.youtube != originalKeyCode.youtube ||
         keyCode.notification != originalKeyCode.notification ||
-        keyCode.fee != originalKeyCode.fee
+        keyCode.fee != originalKeyCode.fee ||
+        keyCode.venmo != originalKeyCode.venmo
     }
     
     @State private var showPayStatus = false
@@ -56,6 +57,13 @@ struct ManagementView: View {
                         .keyboardType(.numberPad)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                 }
+                if userPermit == 9 {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Venmo").font(.caption)
+                        TextField("Venmo", text: $keyCode.venmo)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                }
                 Button("Membership") { showPayStatus = true }
                     .padding()
                 Spacer()
@@ -68,7 +76,7 @@ struct ManagementView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, fee: keyCode.fee)
+                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, fee: keyCode.fee, venmo: keyCode.venmo)
                         originalKeyCode = keyCode
                         onSave?()
                     }

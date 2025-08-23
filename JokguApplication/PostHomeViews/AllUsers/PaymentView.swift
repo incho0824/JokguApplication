@@ -8,14 +8,14 @@ struct PaymentView: View {
     @State private var selectedIndices: Set<Int> = []
     private let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
     private let columns = Array(repeating: GridItem(.flexible()), count: 3)
+    private let currentMonth = Calendar.current.component(.month, from: Date())
     private enum PaymentOption { case selected, due }
     @State private var paymentSelection: PaymentOption = .selected
 
     var body: some View {
         NavigationView {
-            VStack {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 16) {
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 16) {
                         ForEach(0..<months.count, id: \.self) { index in
                             VStack {
                                 Text(months[index])
@@ -33,7 +33,11 @@ struct PaymentView: View {
                                     .fill(
                                         fields[index] == fee
                                             ? Color.green.opacity(0.3)
-                                            : (selectedIndices.contains(index) ? Color.blue.opacity(0.3) : Color.gray.opacity(0.1))
+                                            : selectedIndices.contains(index)
+                                                ? Color.blue.opacity(0.3)
+                                                : (index < currentMonth && fields[index] < fee
+                                                    ? Color.red.opacity(0.3)
+                                                    : Color.gray.opacity(0.1))
                                     )
                             )
                             .onTapGesture {
@@ -47,7 +51,6 @@ struct PaymentView: View {
                         }
                     }
                     .padding()
-                }
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Image(systemName: paymentSelection == .selected ? "largecircle.fill.circle" : "circle")

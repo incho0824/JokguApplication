@@ -8,7 +8,7 @@ struct HomeView: View {
     @State private var showMembers = false
     @State private var showProfile = false
     @State private var showPayment = false
-    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0)
+    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0, venmo: "")
 
     var body: some View {
         VStack {
