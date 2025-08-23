@@ -55,7 +55,7 @@ struct LoginView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .onChange(of: username) { _, newValue in
-                        username = newValue.filter { $0.isLetter }
+                        username = newValue.filter { $0.isLetter || $0.isNumber }
                     }
                     .padding(.horizontal)
 
