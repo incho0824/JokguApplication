@@ -28,7 +28,7 @@ struct HomeView: View {
             }
             .padding()
             .sheet(isPresented: $showLineup) {
-                LineupView()
+                LineupView(username: username)
             }
 
             Button("Members") {
@@ -78,16 +78,7 @@ struct HomeView: View {
             performDailyResetIfNeeded()
             checkTodayStatus()
         }
-        .alert("Jokgu Today—YOU IN?", isPresented: $showTodayPrompt) {
-            Button("Yes") {
-                _ = DatabaseManager.shared.updateToday(username: username, value: 1)
-                showTodayPrompt = false
-            }
-            Button("No") {
-                _ = DatabaseManager.shared.updateToday(username: username, value: 2)
-                showTodayPrompt = false
-            }
-        }
+        .todayPrompt(isPresented: $showTodayPrompt, username: username)
     }
 
     private func loadManagement() {
