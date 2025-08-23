@@ -4,8 +4,8 @@ struct ManagementView: View {
     var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     let userPermit: Int
-    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
-    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
+    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0, venmo: "")
+    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0, venmo: "")
     
     private var hasChanges: Bool {
         keyCode.code != originalKeyCode.code ||
@@ -14,12 +14,10 @@ struct ManagementView: View {
         keyCode.youtube != originalKeyCode.youtube ||
         keyCode.notification != originalKeyCode.notification ||
         keyCode.fee != originalKeyCode.fee ||
-        keyCode.venmo != originalKeyCode.venmo ||
-        keyCode.playwhen != originalKeyCode.playwhen
+        keyCode.venmo != originalKeyCode.venmo
     }
     
     @State private var showPayStatus = false
-    private let daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     
     var body: some View {
         NavigationView {
@@ -54,22 +52,6 @@ struct ManagementView: View {
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Game day(s)").font(.caption)
-                    ForEach(daysOfWeek, id: .self) { day in
-                        Toggle(day, isOn: Binding(
-                            get: { keyCode.playwhen.contains(day) },
-                            set: { newValue in
-                                if newValue {
-                                    keyCode.playwhen.append(day)
-                                } else {
-                                    keyCode.playwhen.removeAll { $0 == day }
-                                }
-                                keyCode.playwhen = daysOfWeek.filter { keyCode.playwhen.contains($0) }
-                            }
-                        ))
-                    }
-                }
-                VStack(alignment: .leading, spacing: 4) {
                     Text("Fee").font(.caption)
                     TextField("Fee", value: $keyCode.fee, formatter: NumberFormatter())
                         .keyboardType(.numberPad)
@@ -94,7 +76,7 @@ struct ManagementView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, playwhen: keyCode.playwhen, fee: keyCode.fee, venmo: keyCode.venmo)
+                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, fee: keyCode.fee, venmo: keyCode.venmo)
                         originalKeyCode = keyCode
                         onSave?()
                     }
