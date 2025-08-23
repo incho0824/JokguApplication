@@ -4,8 +4,9 @@ struct ManagementView: View {
     var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     let userPermit: Int
-    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0, venmo: "")
-    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", fee: 0, venmo: "")
+    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
+    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
+    @State private var showDayPicker = false
     
     private var hasChanges: Bool {
         keyCode.code != originalKeyCode.code ||
@@ -13,6 +14,7 @@ struct ManagementView: View {
         keyCode.welcome != originalKeyCode.welcome ||
         keyCode.youtube != originalKeyCode.youtube ||
         keyCode.notification != originalKeyCode.notification ||
+        keyCode.playwhen != originalKeyCode.playwhen ||
         keyCode.fee != originalKeyCode.fee ||
         keyCode.venmo != originalKeyCode.venmo
     }
@@ -52,6 +54,23 @@ struct ManagementView: View {
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                 }
                 VStack(alignment: .leading, spacing: 4) {
+                    Text("Game day(s)").font(.caption)
+                    Button(action: { showDayPicker = true }) {
+                        HStack {
+                            if keyCode.playwhen.isEmpty {
+                                Text("Select days").foregroundColor(.gray)
+                            } else {
+                                ForEach(keyCode.playwhen, id: \.self) { day in
+                                    Text(day)
+                                }
+                            }
+                            Spacer()
+                        }
+                    }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 5).stroke(Color.gray.opacity(0.5)))
+                }
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Fee").font(.caption)
                     TextField("Fee", value: $keyCode.fee, formatter: NumberFormatter())
                         .keyboardType(.numberPad)
@@ -76,7 +95,7 @@ struct ManagementView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, fee: keyCode.fee, venmo: keyCode.venmo)
+                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, playwhen: keyCode.playwhen, fee: keyCode.fee, venmo: keyCode.venmo)
                         originalKeyCode = keyCode
                         onSave?()
                     }
@@ -88,6 +107,9 @@ struct ManagementView: View {
         .sheet(isPresented: $showPayStatus) {
             PayStatusView(userPermit: userPermit)
         }
+        .sheet(isPresented: $showDayPicker) {
+            DaySelectionView(selectedDays: $keyCode.playwhen)
+        }
     }
     
 
@@ -95,6 +117,53 @@ struct ManagementView: View {
         if let item = DatabaseManager.shared.fetchManagementData().first {
             keyCode = item
             originalKeyCode = item
+        }
+    }
+}
+
+struct DaySelectionView: View {
+    @Environment(\.dismiss) var dismiss
+    @Binding var selectedDays: [String]
+    private let days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
+
+    var body: some View {
+        NavigationView {
+            List {
+                ForEach(days, id: \.self) { day in
+                    MultipleSelectionRow(day: day, isSelected: selectedDays.contains(day)) {
+                        if let index = selectedDays.firstIndex(of: day) {
+                            selectedDays.remove(at: index)
+                        } else {
+                            selectedDays.append(day)
+                            selectedDays.sort { days.firstIndex(of: $0)! < days.firstIndex(of: $1)! }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Game Days")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct MultipleSelectionRow: View {
+    var day: String
+    var isSelected: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Text(day)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                }
+            }
         }
     }
 }
