@@ -33,6 +33,7 @@ struct HomeView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .padding(.top, 40)
+                        .padding(.horizontal)
 
                     Text(management.notification)
                         .multilineTextAlignment(.center)
