@@ -78,6 +78,18 @@ struct LoginView: View {
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .padding(.horizontal)
+        .overlay(alignment: .bottomTrailing) {
+            if let url = management.youtube {
+                Button {
+                    openURL(url)
+                } label: {
+                    Image("youtube-logo")
+                        .resizable()
+                        .frame(width: 40, height: 30)
+                        .padding()
+                }
+            }
+        }
         .onAppear {
             loadManagement()
         }
