@@ -51,13 +51,13 @@ struct PaymentView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Image(systemName: paymentSelection == .selected ? "largecircle.fill.circle" : "circle")
-                        Text("Selected amount = $\(selectedTotal)")
+                        Text("Selected Amount = $\(selectedTotal)")
                         Spacer()
                     }
                     .onTapGesture { paymentSelection = .selected }
                     HStack {
                         Image(systemName: paymentSelection == .due ? "largecircle.fill.circle" : "circle")
-                        Text("Due amount = $\(dueTotal)")
+                        Text("Due Amount = $\(dueTotal)")
                         Spacer()
                     }
                     .onTapGesture { paymentSelection = .due }
