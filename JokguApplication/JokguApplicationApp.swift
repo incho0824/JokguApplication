@@ -21,7 +21,7 @@ struct JokguApplicationApp: App {
         WindowGroup {
             ContentView()
         }
-        .onChange(of: scenePhase) { newPhase in
+        .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 updateAppBadge()
             }
@@ -32,11 +32,13 @@ struct JokguApplicationApp: App {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE"
         let today = formatter.string(from: Date())
+        let badgeCount: Int
         if let management = DatabaseManager.shared.fetchManagementData().first,
            management.playwhen.contains(today) {
-            UIApplication.shared.applicationIconBadgeNumber = 1
+            badgeCount = 1
         } else {
-            UIApplication.shared.applicationIconBadgeNumber = 0
+            badgeCount = 0
         }
+        UNUserNotificationCenter.current().setBadgeCount(badgeCount) { _ in }
     }
 }
