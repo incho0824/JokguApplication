@@ -34,16 +34,20 @@ struct MemberView: View {
         case .attendance:
             members.sort { $0.attendance > $1.attendance }
         case .age:
-            members.sort { calculateAge(from: $0.dob) > calculateAge(from: $1.dob) }
+            members.sort {
+                guard
+                    let date0 = date(from: $0.dob),
+                    let date1 = date(from: $1.dob)
+                else { return false }
+                return date0 < date1
+            }
         }
     }
 
-    private func calculateAge(from dob: String) -> Int {
+    private func date(from dob: String) -> Date? {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM/dd/yyyy"
-        guard let birthDate = formatter.date(from: dob) else { return 0 }
-        let ageComponents = Calendar.current.dateComponents([.year], from: birthDate, to: Date())
-        return ageComponents.year ?? 0
+        return formatter.date(from: dob)
     }
 
     var body: some View {
