@@ -19,7 +19,7 @@ struct LoginView: View {
             Image("logo")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 150, height: 150)
+                .frame(width: 200, height: 200)
                 .padding(.bottom, 20)
 
             Text(management.welcome)
@@ -76,7 +76,8 @@ struct LoginView: View {
                     .foregroundColor(.red)
             }
         }
-        .padding()
+        .frame(maxHeight: .infinity, alignment: .top)
+        .padding(.horizontal)
         .onAppear {
             loadManagement()
         }
