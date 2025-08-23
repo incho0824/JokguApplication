@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import UIKit
+import UserNotifications
 
 struct HomeView: View {
     @Binding var isLoggedIn: Bool
@@ -116,14 +117,14 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            UIApplication.shared.applicationIconBadgeNumber = 0
+            UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
             loadManagement()
             performDailyResetIfNeeded()
             checkTodayStatus()
         }
-        .onChange(of: scenePhase) { newPhase in
+        .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                UIApplication.shared.applicationIconBadgeNumber = 0
+                UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
             }
         }
         .todayPrompt(isPresented: $showTodayPrompt, username: username)
