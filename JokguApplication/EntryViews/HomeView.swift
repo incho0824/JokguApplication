@@ -13,7 +13,7 @@ struct HomeView: View {
     @State private var showLineup = false
     @State private var showProfile = false
     @State private var showPayment = false
-    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
+    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "", kakao: nil)
     @State private var showTodayPrompt = false
 
     var body: some View {

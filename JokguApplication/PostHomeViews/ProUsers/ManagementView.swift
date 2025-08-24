@@ -4,8 +4,8 @@ struct ManagementView: View {
     var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     let userPermit: Int
-    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
-    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
+    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "", kakao: nil)
+    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "", kakao: nil)
     @State private var showDayPicker = false
     
     private var hasChanges: Bool {
@@ -16,7 +16,8 @@ struct ManagementView: View {
         keyCode.notification != originalKeyCode.notification ||
         keyCode.playwhen != originalKeyCode.playwhen ||
         keyCode.fee != originalKeyCode.fee ||
-        keyCode.venmo != originalKeyCode.venmo
+        keyCode.venmo != originalKeyCode.venmo ||
+        keyCode.kakao != originalKeyCode.kakao
     }
     
     @State private var showPayStatus = false
@@ -82,6 +83,14 @@ struct ManagementView: View {
                         TextField("Venmo", text: $keyCode.venmo)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Kakao").font(.caption)
+                        TextField("Kakao", text: Binding(
+                            get: { keyCode.kakao?.absoluteString ?? "" },
+                            set: { keyCode.kakao = URL(string: $0.lowercased()) }
+                        ))
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
                 }
                 Button("Membership") { showPayStatus = true }
                     .padding()
@@ -95,7 +104,7 @@ struct ManagementView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, playwhen: keyCode.playwhen, fee: keyCode.fee, venmo: keyCode.venmo)
+                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, playwhen: keyCode.playwhen, fee: keyCode.fee, venmo: keyCode.venmo, kakao: keyCode.kakao)
                         originalKeyCode = keyCode
                         onSave?()
                     }
