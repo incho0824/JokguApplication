@@ -9,7 +9,7 @@ struct LoginView: View {
     @State private var loginFailed: Bool = false
     @State private var showKeyCodePrompt: Bool = false
     @State private var keyCodeInput: String = ""
-    @State private var showRegisterView: Bool = false
+    @State private var showMemberVerifyView: Bool = false
     @State private var showAddressPrompt: Bool = false
     @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, kakao: nil, notification: "", playwhen: [], fee: 0, venmo: "")
     @Environment(\.openURL) private var openURL
@@ -138,7 +138,7 @@ struct LoginView: View {
                         if keyCodeInput == storedCode {
                             showKeyCodePrompt = false
                             keyCodeInput = ""
-                            showRegisterView = true
+                            showMemberVerifyView = true
                         }
                     }
                 }
@@ -146,8 +146,8 @@ struct LoginView: View {
             }
             .padding()
         }
-        .sheet(isPresented: $showRegisterView) {
-            RegisterView()
+        .sheet(isPresented: $showMemberVerifyView) {
+            MemberVerificationView()
         }
     }
 
