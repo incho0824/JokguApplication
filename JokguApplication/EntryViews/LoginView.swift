@@ -11,7 +11,7 @@ struct LoginView: View {
     @State private var keyCodeInput: String = ""
     @State private var showRegisterView: Bool = false
     @State private var showAddressPrompt: Bool = false
-    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
+    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, kakao: nil, notification: "", playwhen: [], fee: 0, venmo: "")
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -91,14 +91,26 @@ struct LoginView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             .padding(.horizontal)
             .overlay(alignment: .bottomTrailing) {
-                if let url = management.youtube {
-                    Button {
-                        openURL(url)
-                    } label: {
-                        Image("youtube-logo")
-                            .resizable()
-                            .frame(width: 40, height: 30)
-                            .padding()
+                HStack(spacing: 0) {
+                    if let kakaoURL = management.kakao {
+                        Button {
+                            openURL(kakaoURL)
+                        } label: {
+                            Image("kakao-logo")
+                                .resizable()
+                                .frame(width: 40, height: 30)
+                                .padding()
+                        }
+                    }
+                    if let url = management.youtube {
+                        Button {
+                            openURL(url)
+                        } label: {
+                            Image("youtube-logo")
+                                .resizable()
+                                .frame(width: 40, height: 30)
+                                .padding()
+                        }
                     }
                 }
             }

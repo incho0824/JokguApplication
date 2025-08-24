@@ -4,8 +4,8 @@ struct ManagementView: View {
     var onSave: (() -> Void)? = nil
     @Environment(\.dismiss) var dismiss
     let userPermit: Int
-    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
-    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, notification: "", playwhen: [], fee: 0, venmo: "")
+    @State private var keyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, kakao: nil, notification: "", playwhen: [], fee: 0, venmo: "")
+    @State private var originalKeyCode = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, kakao: nil, notification: "", playwhen: [], fee: 0, venmo: "")
     @State private var showDayPicker = false
     
     private var hasChanges: Bool {
@@ -13,6 +13,7 @@ struct ManagementView: View {
         keyCode.address != originalKeyCode.address ||
         keyCode.welcome != originalKeyCode.welcome ||
         keyCode.youtube != originalKeyCode.youtube ||
+        keyCode.kakao != originalKeyCode.kakao ||
         keyCode.notification != originalKeyCode.notification ||
         keyCode.playwhen != originalKeyCode.playwhen ||
         keyCode.fee != originalKeyCode.fee ||
@@ -23,71 +24,81 @@ struct ManagementView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Keycode").font(.caption)
-                    TextField("Keycode", text: $keyCode.code)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Address").font(.caption)
-                    TextField("Address", text: $keyCode.address)
-                        .textContentType(.fullStreetAddress)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Welcome").font(.caption)
-                    TextField("Welcome", text: $keyCode.welcome)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Youtube").font(.caption)
-                    TextField("Youtube", text: Binding(
-                        get: { keyCode.youtube?.absoluteString ?? "" },
-                        set: { keyCode.youtube = URL(string: $0.lowercased()) }
-                    ))
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Notification").font(.caption)
-                    TextField("Notification", text: $keyCode.notification)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Game day(s)").font(.caption)
-                    Button(action: { showDayPicker = true }) {
-                        HStack {
-                            if keyCode.playwhen.isEmpty {
-                                Text("Select days").foregroundColor(.gray)
-                            } else {
-                                ForEach(keyCode.playwhen, id: \.self) { day in
-                                    Text(day)
-                                }
-                            }
-                            Spacer()
-                        }
-                    }
-                    .padding(8)
-                    .background(RoundedRectangle(cornerRadius: 5).stroke(Color.gray.opacity(0.5)))
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Fee").font(.caption)
-                    TextField("Fee", value: $keyCode.fee, formatter: NumberFormatter())
-                        .keyboardType(.numberPad)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                }
-                if userPermit == 9 {
+            ScrollView {
+                VStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Venmo").font(.caption)
-                        TextField("Venmo", text: $keyCode.venmo)
+                        Text("Keycode").font(.caption)
+                        TextField("Keycode", text: $keyCode.code)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Address").font(.caption)
+                        TextField("Address", text: $keyCode.address)
+                            .textContentType(.fullStreetAddress)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Welcome").font(.caption)
+                        TextField("Welcome", text: $keyCode.welcome)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Youtube").font(.caption)
+                        TextField("Youtube", text: Binding(
+                            get: { keyCode.youtube?.absoluteString ?? "" },
+                            set: { keyCode.youtube = URL(string: $0.lowercased()) }
+                        ))
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Kakao").font(.caption)
+                        TextField("Kakao", text: Binding(
+                            get: { keyCode.kakao?.absoluteString ?? "" },
+                            set: { keyCode.kakao = URL(string: $0.lowercased()) }
+                        ))
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Notification").font(.caption)
+                        TextField("Notification", text: $keyCode.notification)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Game day(s)").font(.caption)
+                        Button(action: { showDayPicker = true }) {
+                            HStack {
+                                if keyCode.playwhen.isEmpty {
+                                    Text("Select days").foregroundColor(.gray)
+                                } else {
+                                    ForEach(keyCode.playwhen, id: \.self) { day in
+                                        Text(day)
+                                    }
+                                }
+                                Spacer()
+                            }
+                        }
+                        .padding(8)
+                        .background(RoundedRectangle(cornerRadius: 5).stroke(Color.gray.opacity(0.5)))
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Fee").font(.caption)
+                        TextField("Fee", value: $keyCode.fee, formatter: NumberFormatter())
+                            .keyboardType(.numberPad)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    if userPermit == 9 {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Venmo").font(.caption)
+                            TextField("Venmo", text: $keyCode.venmo)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
+                    }
+                    Button("Membership") { showPayStatus = true }
+                        .padding()
                 }
-                Button("Membership") { showPayStatus = true }
-                    .padding()
-                Spacer()
+                .padding()
             }
-            .padding()
             .navigationTitle("Management")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -95,7 +106,7 @@ struct ManagementView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, notification: keyCode.notification, playwhen: keyCode.playwhen, fee: keyCode.fee, venmo: keyCode.venmo)
+                        DatabaseManager.shared.updateManagement(id: keyCode.id, code: keyCode.code, address: keyCode.address, welcome: keyCode.welcome, youtube: keyCode.youtube, kakao: keyCode.kakao, notification: keyCode.notification, playwhen: keyCode.playwhen, fee: keyCode.fee, venmo: keyCode.venmo)
                         originalKeyCode = keyCode
                         onSave?()
                     }
