@@ -3,6 +3,8 @@ import PhotosUI
 
 struct RegisterView: View {
     @Environment(\.dismiss) var dismiss
+    var member: Member? = nil
+    var onComplete: (() -> Void)? = nil
     @State private var firstName: String = ""
     @State private var lastName: String = ""
     @State private var phoneNumber: String = ""
@@ -15,55 +17,77 @@ struct RegisterView: View {
     @State private var selectedPhoto: PhotosPickerItem? = nil
     @State private var pictureData: Data? = nil
 
+    init(member: Member? = nil, onComplete: (() -> Void)? = nil) {
+        self.member = member
+        self.onComplete = onComplete
+        _firstName = State(initialValue: member?.firstName ?? "")
+        _lastName = State(initialValue: member?.lastName ?? "")
+        _phoneNumber = State(initialValue: member?.phoneNumber ?? "")
+        if let dobString = member?.dob {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MM/dd/yyyy"
+            _dob = State(initialValue: formatter.date(from: dobString))
+        } else {
+            _dob = State(initialValue: nil)
+        }
+        _username = State(initialValue: member?.username ?? "")
+        _pictureData = State(initialValue: member?.picture)
+    }
+
     var body: some View {
         VStack(spacing: 16) {
-            PhotosPicker(selection: $selectedPhoto, matching: .any(of: [.images, .videos])) {
-                if let pictureData,
-                   let uiImage = UIImage(data: pictureData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 100, height: 100)
-                        .clipShape(Circle())
-                } else {
-                    Image("default-profile")
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 100, height: 100)
-                        .clipShape(Circle())
-                }
-            }
-            .onChange(of: selectedPhoto) { _, newItem in
-                Task {
-                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                        pictureData = data
+            if member == nil {
+                PhotosPicker(selection: $selectedPhoto, matching: .any(of: [.images, .videos])) {
+                    if let pictureData,
+                       let uiImage = UIImage(data: pictureData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 100, height: 100)
+                            .clipShape(Circle())
+                    } else {
+                        Image("default-profile")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 100, height: 100)
+                            .clipShape(Circle())
                     }
                 }
-            }
-
-            TextField("First Name", text: $firstName)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-
-            TextField("Last Name", text: $lastName)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-
-            TextField("Phone Number", text: $phoneNumber)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .keyboardType(.phonePad)
-                .padding(.horizontal)
-                .onChange(of: phoneNumber) { _, newValue in
-                    phoneNumber = formatPhoneNumber(newValue)
+                .onChange(of: selectedPhoto) { _, newItem in
+                    Task {
+                        if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                            pictureData = data
+                        }
+                    }
                 }
 
-            DatePicker("Date of Birth", selection: Binding(
-                get: { dob ?? Date() },
-                set: { dob = $0 }
-            ), displayedComponents: .date)
-                .datePickerStyle(.compact)
-                .environment(\.locale, Locale(identifier: "en_US"))
-                .padding(.horizontal)
+                TextField("First Name", text: $firstName)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+
+                TextField("Last Name", text: $lastName)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.horizontal)
+
+                TextField("Phone Number", text: $phoneNumber)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.phonePad)
+                    .padding(.horizontal)
+                    .onChange(of: phoneNumber) { _, newValue in
+                        phoneNumber = formatPhoneNumber(newValue)
+                    }
+
+                DatePicker("Date of Birth", selection: Binding(
+                    get: { dob ?? Date() },
+                    set: { dob = $0 }
+                ), displayedComponents: .date)
+                    .datePickerStyle(.compact)
+                    .environment(\.locale, Locale(identifier: "en_US"))
+                    .padding(.horizontal)
+            } else {
+                Text("Registering \(firstName) \(lastName)")
+                Text("DOB: \(member!.dob)")
+            }
 
             TextField("Username", text: $username)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -92,38 +116,47 @@ struct RegisterView: View {
                     dismiss()
                 }
                 Spacer()
-                Button("Create") {
-                    let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+                Button("Register") {
                     let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-
-                    if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty {
-                        showMessage("All fields are required", color: .red)
-                    } else if dob == nil {
-                        showMessage("Date of birth is required", color: .red)
-                    } else if confirmPassword.isEmpty {
-                        showMessage("Please confirm your password", color: .red)
-                    } else if password != confirmPassword {
-                        showMessage("Passwords do not match", color: .red)
-                    } else if !trimmedUser.allSatisfy({ $0.isLetter || $0.isNumber }) {
-                        showMessage("Username must contain letters and numbers only", color: .red)
-                    } else if DatabaseManager.shared.userExists(trimmedUser) {
-                        showMessage("Username already exists", color: .red)
-                    } else if DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData()) {
-                        showMessage("User created", color: .green)
-                        self.firstName = ""
-                        self.lastName = ""
-                        self.phoneNumber = ""
-                        self.dob = nil
-                        self.username = ""
-                        self.password = ""
-                        self.confirmPassword = ""
-                        self.selectedPhoto = nil
-                        self.pictureData = nil
-                        dismiss()
-                    } else {
-                        showMessage("Unable to create user", color: .red)
+                    if member == nil {
+                        let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty {
+                            showMessage("All fields are required", color: .red)
+                        } else if dob == nil {
+                            showMessage("Date of birth is required", color: .red)
+                        } else if confirmPassword.isEmpty {
+                            showMessage("Please confirm your password", color: .red)
+                        } else if password != confirmPassword {
+                            showMessage("Passwords do not match", color: .red)
+                        } else if !trimmedUser.allSatisfy({ $0.isLetter || $0.isNumber }) {
+                            showMessage("Username must contain letters and numbers only", color: .red)
+                        } else if DatabaseManager.shared.userExists(trimmedUser) {
+                            showMessage("Username already exists", color: .red)
+                        } else if DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData()) {
+                            showMessage("User created", color: .green)
+                            onComplete?()
+                            dismiss()
+                        } else {
+                            showMessage("Unable to create user", color: .red)
+                        }
+                    } else if let member = member {
+                        if trimmedUser.isEmpty || password.isEmpty {
+                            showMessage("All fields are required", color: .red)
+                        } else if confirmPassword.isEmpty {
+                            showMessage("Please confirm your password", color: .red)
+                        } else if password != confirmPassword {
+                            showMessage("Passwords do not match", color: .red)
+                        } else if DatabaseManager.shared.userExists(trimmedUser) && trimmedUser != member.username.uppercased() {
+                            showMessage("Username already exists", color: .red)
+                        } else if DatabaseManager.shared.updateMemberCredentials(id: member.id, username: trimmedUser, password: password) {
+                            showMessage("User updated", color: .green)
+                            onComplete?()
+                            dismiss()
+                        } else {
+                            showMessage("Unable to update user", color: .red)
+                        }
                     }
                 }
             }
