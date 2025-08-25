@@ -102,7 +102,7 @@ struct PayStatusView: View {
     }
 
     private func loadData() {
-        members = DatabaseManager.shared.fetchMembers()
+        members = DatabaseManager.shared.fetchMembers().filter { $0.guest == 1 }
         var dict: [String: [String]] = [:]
         for member in members {
             if let values = DatabaseManager.shared.fetchUserFields(username: member.username) {
