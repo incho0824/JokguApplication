@@ -5,8 +5,7 @@ struct MemberVerificationView: View {
     @State private var members: [Member] = []
     @State private var selectedMember: Member? = nil
     @State private var showRegister = false
-    @State private var showCodePrompt = false
-    @State private var generatedCode: String = ""
+    @State private var verifyingMember: Member? = nil
     @State private var inputCode: String = ""
 
     var body: some View {
@@ -32,8 +31,7 @@ struct MemberVerificationView: View {
                     Spacer()
                     Button("Verify") {
                         if let member = selectedMember {
-                            sendCode(to: member.phoneNumber)
-                            showCodePrompt = true
+                            verifyingMember = member
                         }
                     }
                     .disabled(selectedMember == nil)
@@ -65,35 +63,30 @@ struct MemberVerificationView: View {
                 }
             }
         }
-        .sheet(isPresented: $showCodePrompt) {
+        .sheet(item: $verifyingMember) { member in
             VStack(spacing: 16) {
                 TextField("Enter verification code", text: $inputCode)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .keyboardType(.numberPad)
                     .padding()
                 HStack {
                     Button("Cancel") {
-                        showCodePrompt = false
+                        verifyingMember = nil
                         inputCode = ""
                     }
                     Spacer()
                     Button("Confirm") {
-                        if inputCode == generatedCode {
-                            showCodePrompt = false
+                        if inputCode.caseInsensitiveCompare(member.username) == .orderedSame {
+                            verifyingMember = nil
                             inputCode = ""
                             showRegister = true
                         }
                     }
-                    .disabled(inputCode.count != 6)
+                    .disabled(inputCode.isEmpty)
                 }
                 .padding(.horizontal)
             }
             .presentationDetents([.medium])
         }
-    }
-
-    private func sendCode(to phone: String) {
-        generatedCode = "000000"
     }
 }
 
