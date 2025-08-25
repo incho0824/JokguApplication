@@ -30,7 +30,7 @@ struct RegisterView: View {
         } else {
             _dob = State(initialValue: nil)
         }
-        _username = State(initialValue: "")
+        _username = State(initialValue: member?.username ?? "")
         _pictureData = State(initialValue: member?.picture)
     }
 
