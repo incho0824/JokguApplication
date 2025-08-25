@@ -87,7 +87,7 @@ struct ManagementView: View {
                             .keyboardType(.numberPad)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
-                    if userPermit == 9 {
+                    if userPermit == 9 || userPermit == 2 {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Venmo").font(.caption)
                             TextField("Venmo", text: $keyCode.venmo)

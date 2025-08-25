@@ -65,7 +65,7 @@ struct PayStatusView: View {
                         return monthIndex < fields.count ? fields[monthIndex] : ""
                     },
                     set: { newValue in
-                        guard userPermit == 9 else { return }
+                        guard userPermit == 9 || userPermit == 2 else { return }
                         var fields = userFields[member.username] ?? Array(repeating: "", count: months.count)
                         if fields.count < months.count {
                             fields += Array(repeating: "", count: months.count - fields.count)
@@ -82,7 +82,7 @@ struct PayStatusView: View {
                     .background((Int(binding.wrappedValue) ?? 0) >= fee ? Color.green.opacity(0.3) : Color.red.opacity(0.3))
                     .border(Color.gray)
                     .keyboardType(.numberPad)
-                    .disabled(userPermit != 9)
+                    .disabled(!(userPermit == 9 || userPermit == 2))
             }
         }
     }
