@@ -68,7 +68,7 @@ struct MemberVerificationView: View {
                 TextField("Enter verification code", text: $inputCode)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding()
-                Text("Ask In Cho for your code.\n(SMS Mobile Text verification is currently disabled because\nIn Cho does not want to pay for the Twilio Account)")
+                Text("Ask In Cho for your code.\n(SMS Mobile Text Verification is currently disabled because\nIn Cho does not want to pay for the Twilio Account)")
                     .font(.footnote)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
