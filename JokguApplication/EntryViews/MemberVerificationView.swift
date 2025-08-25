@@ -41,6 +41,13 @@ struct MemberVerificationView: View {
                 .padding()
             }
             .navigationTitle("Who are you?")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Back") {
+                        dismiss()
+                    }
+                }
+            }
         }
         .onAppear {
             members = DatabaseManager.shared.fetchUnsyncedMembers()
@@ -86,8 +93,7 @@ struct MemberVerificationView: View {
     }
 
     private func sendCode(to phone: String) {
-        generatedCode = String(format: "%06d", Int.random(in: 0...999_999))
-        print("Verification code for \(phone): \(generatedCode)")
+        generatedCode = "000000"
     }
 }
 
