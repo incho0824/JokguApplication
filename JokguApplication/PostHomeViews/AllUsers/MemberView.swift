@@ -52,44 +52,57 @@ struct MemberView: View {
 
     var body: some View {
         NavigationView {
-            List(members) { member in
-                HStack(alignment: .top) {
-                    if let data = member.picture,
-                       let uiImage = UIImage(data: data) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 60, height: 60)
-                            .clipShape(Circle())
-                    } else {
-                        Image("default-profile")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 60, height: 60)
-                            .clipShape(Circle())
-                    }
-                    VStack(alignment: .leading) {
-                        Text("\(member.lastName) \(member.firstName)")
-                        Text("DOB: \(member.dob)")
-                        Text("Phone: \(member.phoneNumber)")
-                        Text("Attendance: \(member.attendance)")
-                    }
-                }
-                .swipeActions {
-                    if userPermit > 0 && member.permit != 2 {
-                        Button(role: .destructive) {
-                            selectedMember = member
-                            activeAlert = .delete
-                        } label: {
-                            Label("Delete", systemImage: "trash")
+            List {
+                ForEach(members.indices, id: \.self) { index in
+                    let member = members[index]
+                    HStack(alignment: .top) {
+                        if let data = member.picture,
+                           let uiImage = UIImage(data: data) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 60, height: 60)
+                                .clipShape(Circle())
+                        } else {
+                            Image("default-profile")
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 60, height: 60)
+                                .clipShape(Circle())
+                        }
+                        VStack(alignment: .leading) {
+                            Text("\(member.lastName) \(member.firstName)")
+                            Text("DOB: \(member.dob)")
+                            Text("Phone: \(member.phoneNumber)")
+                            Text("Attendance: \(member.attendance)")
+                            if userPermit == 9 {
+                                Toggle("Guest", isOn: Binding(
+                                    get: { members[index].guest == 1 },
+                                    set: { newValue in
+                                        members[index].guest = newValue ? 1 : 0
+                                        _ = DatabaseManager.shared.updateGuest(id: member.id, guest: members[index].guest)
+                                    }
+                                ))
+                                .labelsHidden()
+                            }
                         }
                     }
-                    if userPermit == 2 && member.permit != 2 {
-                        Button {
-                            selectedMember = member
-                            showPermitChoice = true
-                        } label: {
-                            Label("Permit", systemImage: "pencil")
+                    .swipeActions {
+                        if userPermit > 0 && member.permit != 2 {
+                            Button(role: .destructive) {
+                                selectedMember = member
+                                activeAlert = .delete
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        if userPermit == 2 && member.permit != 2 {
+                            Button {
+                                selectedMember = member
+                                showPermitChoice = true
+                            } label: {
+                                Label("Permit", systemImage: "pencil")
+                            }
                         }
                     }
                 }
