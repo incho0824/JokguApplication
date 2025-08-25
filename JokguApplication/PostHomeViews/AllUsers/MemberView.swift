@@ -9,7 +9,6 @@ struct MemberView: View {
     @State private var selectedMember: Member?
     @State private var newPermit: Int = 0
     @State private var showPermitChoice = false
-    @State private var editMode: EditMode = .inactive
 
     private enum ActiveAlert: Identifiable {
         case delete
@@ -51,13 +50,6 @@ struct MemberView: View {
         return formatter.date(from: dob)
     }
 
-    private func move(from source: IndexSet, to destination: Int) {
-        members.move(fromOffsets: source, toOffset: destination)
-        for (index, member) in members.enumerated() {
-            _ = DatabaseManager.shared.updateSortOrder(id: member.id, sortOrder: index)
-        }
-    }
-
     var body: some View {
         NavigationView {
             List {
@@ -83,7 +75,7 @@ struct MemberView: View {
                             Text("DOB: \(member.dob)")
                             Text("Phone: \(member.phoneNumber)")
                             Text("Attendance: \(member.attendance)")
-                            if userPermit == 9 || userPermit == 2 {
+                            if userPermit == 9 {
                                 Toggle("Guest", isOn: Binding(
                                     get: { members[index].guest == 1 },
                                     set: { newValue in
@@ -114,19 +106,13 @@ struct MemberView: View {
                         }
                     }
                 }
-                .onMove(perform: move)
             }
             .navigationTitle("Members")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Back") { dismiss() }
                 }
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    if userPermit == 9 || userPermit == 2 {
-                        Button(editMode == .active ? "Done" : "Reorder") {
-                            editMode = editMode == .active ? .inactive : .active
-                        }
-                    }
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Picker("Sort", selection: $sortOption) {
                         ForEach(SortOption.allCases) { option in
                             Text(option.rawValue).tag(option)
@@ -179,7 +165,6 @@ struct MemberView: View {
                 }
             }
         }
-        .environment(\.editMode, $editMode)
     }
 }
 
