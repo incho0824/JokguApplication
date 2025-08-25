@@ -2,18 +2,12 @@ import SwiftUI
 
 struct MemberVerificationView: View {
     @Environment(\.dismiss) var dismiss
-    struct RegistrationSelection: Identifiable {
-        let id = UUID()
-        let member: Member?
-    }
-
     @State private var members: [Member] = []
     @State private var selectedMember: Member? = nil
-    @State private var registrationSelection: RegistrationSelection? = nil
-    @State private var codeSelection: Member? = nil
+    @State private var showRegister = false
+    @State private var showCodePrompt = false
     @State private var generatedCode: String = ""
     @State private var inputCode: String = ""
-    @State private var codeExpiration: Date? = nil
 
     var body: some View {
         NavigationView {
@@ -33,13 +27,13 @@ struct MemberVerificationView: View {
                 HStack {
                     Button("New") {
                         selectedMember = nil
-                        registrationSelection = RegistrationSelection(member: nil)
+                        showRegister = true
                     }
                     Spacer()
                     Button("Verify") {
                         if let member = selectedMember {
                             sendCode(to: member.phoneNumber)
-                            codeSelection = member
+                            showCodePrompt = true
                         }
                     }
                     .disabled(selectedMember == nil)
@@ -47,21 +41,14 @@ struct MemberVerificationView: View {
                 .padding()
             }
             .navigationTitle("Who are you?")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Back") {
-                        dismiss()
-                    }
-                }
-            }
         }
         .onAppear {
             members = DatabaseManager.shared.fetchUnsyncedMembers()
         }
-        .sheet(item: $registrationSelection, onDismiss: {
+        .sheet(isPresented: $showRegister, onDismiss: {
             members = DatabaseManager.shared.fetchUnsyncedMembers()
-        }) { selection in
-            if let member = selection.member {
+        }) {
+            if let member = selectedMember {
                 RegisterView(member: member) {
                     dismiss()
                 }
@@ -71,29 +58,23 @@ struct MemberVerificationView: View {
                 }
             }
         }
-        .sheet(item: $codeSelection) { member in
+        .sheet(isPresented: $showCodePrompt) {
             VStack(spacing: 16) {
                 TextField("Enter verification code", text: $inputCode)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .keyboardType(.numberPad)
                     .padding()
-                    .onChange(of: inputCode) { _, newValue in
-                        inputCode = newValue.filter { $0.isNumber }
-                        if inputCode.count > 6 { inputCode = String(inputCode.prefix(6)) }
-                    }
                 HStack {
                     Button("Cancel") {
-                        codeSelection = nil
+                        showCodePrompt = false
                         inputCode = ""
                     }
                     Spacer()
                     Button("Confirm") {
-                        if inputCode == generatedCode,
-                           let expiry = codeExpiration,
-                           Date() <= expiry {
-                            codeSelection = nil
+                        if inputCode == generatedCode {
+                            showCodePrompt = false
                             inputCode = ""
-                            registrationSelection = RegistrationSelection(member: member)
+                            showRegister = true
                         }
                     }
                     .disabled(inputCode.count != 6)
@@ -106,8 +87,7 @@ struct MemberVerificationView: View {
 
     private func sendCode(to phone: String) {
         generatedCode = String(format: "%06d", Int.random(in: 0...999_999))
-        codeExpiration = Date().addingTimeInterval(300)
-        SMSService.shared.sendSMS(to: phone, message: "Your verification code is \(generatedCode)")
+        print("Verification code for \(phone): \(generatedCode)")
     }
 }
 
