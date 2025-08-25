@@ -28,6 +28,7 @@ struct Member: Identifiable {
     var guest: Int
     var today: Int
     var syncd: Int
+    var orderIndex: Int
 }
 
 struct UserFields {
@@ -82,6 +83,8 @@ class DatabaseManager {
         sqlite3_exec(db, "ALTER TABLE member ADD COLUMN syncd INTEGER DEFAULT 0;", nil, nil, nil)
         // attempt to add guest column for existing databases
         sqlite3_exec(db, "ALTER TABLE member ADD COLUMN guest INTEGER DEFAULT 0;", nil, nil, nil)
+        // attempt to add orderIndex column for existing databases
+        sqlite3_exec(db, "ALTER TABLE member ADD COLUMN orderIndex INTEGER DEFAULT 0;", nil, nil, nil)
         // attempt to add new management columns for existing databases
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN welcome TEXT;", nil, nil, nil)
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN youtube TEXT;", nil, nil, nil)
@@ -115,7 +118,7 @@ class DatabaseManager {
     func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) -> Bool {
         let upperUsername = username.uppercased()
         guard !userExists(upperUsername) else { return false }
-        let insertSQL = "INSERT INTO member (username, password, firstname, lastname, phonenumber, dob, picture, syncd) VALUES (?, ?, ?, ?, ?, ?, ?, 1);"
+        let insertSQL = "INSERT INTO member (username, password, firstname, lastname, phonenumber, dob, picture, syncd, orderIndex) VALUES (?, ?, ?, ?, ?, ?, ?, 1, (SELECT IFNULL(MAX(orderIndex), -1) + 1 FROM member));"
         var statement: OpaquePointer?
         var success = false
         if sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK {
@@ -162,7 +165,7 @@ class DatabaseManager {
     }
 
     func fetchMembers() -> [Member] {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd FROM member;"
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex FROM member ORDER BY orderIndex;"
         var statement: OpaquePointer?
         var items: [Member] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -198,7 +201,8 @@ class DatabaseManager {
                 let guest = Int(sqlite3_column_int(statement, 9))
                 let today = Int(sqlite3_column_int(statement, 10))
                 let syncd = Int(sqlite3_column_int(statement, 11))
-                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd))
+                let orderIndex = Int(sqlite3_column_int(statement, 12))
+                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex))
         }
         }
         sqlite3_finalize(statement)
@@ -206,7 +210,7 @@ class DatabaseManager {
     }
 
     func fetchTodayMembers() -> [Member] {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd FROM member WHERE today = 1;"
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex FROM member WHERE today = 1;"
         var statement: OpaquePointer?
         var items: [Member] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -242,7 +246,8 @@ class DatabaseManager {
                 let guest = Int(sqlite3_column_int(statement, 9))
                 let today = Int(sqlite3_column_int(statement, 10))
                 let syncd = Int(sqlite3_column_int(statement, 11))
-                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd))
+                let orderIndex = Int(sqlite3_column_int(statement, 12))
+                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex))
         }
         }
         sqlite3_finalize(statement)
@@ -250,7 +255,7 @@ class DatabaseManager {
     }
 
     func fetchUser(username: String) -> Member? {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd FROM member WHERE username = ? LIMIT 1;"
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex FROM member WHERE username = ? LIMIT 1;"
         var statement: OpaquePointer?
         var member: Member? = nil
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -288,7 +293,8 @@ class DatabaseManager {
                 let guest = Int(sqlite3_column_int(statement, 9))
                 let today = Int(sqlite3_column_int(statement, 10))
                 let syncd = Int(sqlite3_column_int(statement, 11))
-                member = Member(id: id, username: uname, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd)
+                let orderIndex = Int(sqlite3_column_int(statement, 12))
+                member = Member(id: id, username: uname, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex)
             }
         }
         sqlite3_finalize(statement)
@@ -296,7 +302,7 @@ class DatabaseManager {
     }
 
     func fetchUnsyncedMembers() -> [Member] {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd FROM member WHERE syncd = 0;"
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex FROM member WHERE syncd = 0;"
         var statement: OpaquePointer?
         var items: [Member] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -332,7 +338,8 @@ class DatabaseManager {
                 let guest = Int(sqlite3_column_int(statement, 9))
                 let today = Int(sqlite3_column_int(statement, 10))
                 let syncd = Int(sqlite3_column_int(statement, 11))
-                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd))
+                let orderIndex = Int(sqlite3_column_int(statement, 12))
+                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex))
             }
         }
         sqlite3_finalize(statement)
@@ -449,6 +456,21 @@ class DatabaseManager {
         var success = false
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
             sqlite3_bind_int(statement, 1, Int32(guest))
+            sqlite3_bind_int(statement, 2, Int32(id))
+            if sqlite3_step(statement) == SQLITE_DONE {
+                success = true
+            }
+        }
+        sqlite3_finalize(statement)
+        return success
+    }
+
+    func updateOrder(id: Int, order: Int) -> Bool {
+        let query = "UPDATE member SET orderIndex = ? WHERE id = ?;"
+        var statement: OpaquePointer?
+        var success = false
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(order))
             sqlite3_bind_int(statement, 2, Int32(id))
             if sqlite3_step(statement) == SQLITE_DONE {
                 success = true
