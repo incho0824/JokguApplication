@@ -13,7 +13,7 @@ struct JokguApplicationApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.badge]) { _, _ in }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .alert, .sound]) { _, _ in }
         updateAppBadge()
     }
 
@@ -40,5 +40,31 @@ struct JokguApplicationApp: App {
             badgeCount = 0
         }
         UNUserNotificationCenter.current().setBadgeCount(badgeCount) { _ in }
+
+        scheduleNoonAlertIfNeeded(badgeCount: badgeCount)
+    }
+
+    private func scheduleNoonAlertIfNeeded(badgeCount: Int) {
+        let center = UNUserNotificationCenter.current()
+        let identifier = "noonAlert"
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+
+        guard badgeCount == 1 else { return }
+
+        var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        dateComponents.hour = 12
+        dateComponents.minute = 0
+
+        guard let triggerDate = Calendar.current.date(from: dateComponents),
+              triggerDate > Date() else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Reminder"
+        content.body = "Game day today!"
+        content.sound = .default
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        center.add(request, withCompletionHandler: nil)
     }
 }
