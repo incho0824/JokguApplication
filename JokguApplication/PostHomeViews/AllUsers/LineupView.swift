@@ -5,6 +5,7 @@ struct LineupView: View {
     var username: String
     @State private var members: [Member] = []
     @State private var showTodayPrompt = false
+    @State private var isPlayDay = false
     private let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
     private var userInLineup: Bool {
         members.contains { $0.username.uppercased() == username.uppercased() }
@@ -38,17 +39,19 @@ struct LineupView: View {
                     }
                     .padding()
                 }
-                if userInLineup {
-                    Button("Count me out...") {
-                        showTodayPrompt = true
+                if isPlayDay {
+                    if userInLineup {
+                        Button("Count me out...") {
+                            showTodayPrompt = true
+                        }
+                        .foregroundColor(.red)
+                        .padding()
+                    } else {
+                        Button("Count me in!") {
+                            showTodayPrompt = true
+                        }
+                        .padding()
                     }
-                    .foregroundColor(.red)
-                    .padding()
-                } else {
-                    Button("Count me in!") {
-                        showTodayPrompt = true
-                    }
-                    .padding()
                 }
             }
             .navigationTitle("Today's Lineup")
@@ -59,10 +62,24 @@ struct LineupView: View {
             }
             .onAppear {
                 members = DatabaseManager.shared.fetchTodayMembers()
+                checkPlayDay()
             }
             .todayPrompt(isPresented: $showTodayPrompt, username: username) {
                 members = DatabaseManager.shared.fetchTodayMembers()
             }
+        }
+    }
+}
+
+private extension LineupView {
+    func checkPlayDay() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        let today = formatter.string(from: Date())
+        if let management = DatabaseManager.shared.fetchManagementData().first {
+            isPlayDay = management.playwhen.contains(today)
+        } else {
+            isPlayDay = false
         }
     }
 }
