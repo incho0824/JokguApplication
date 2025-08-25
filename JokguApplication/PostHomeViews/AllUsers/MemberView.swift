@@ -1,24 +1,11 @@
 import SwiftUI
-import PhotosUI
 
 struct MemberView: View {
     @Environment(\.dismiss) var dismiss
     let userPermit: Int
     @State private var members: [Member] = []
     @State private var sortOption: SortOption = .name
-    @State private var selectedMember: Member?
-    @State private var newPermit: Int = 0
-    @State private var showPermitChoice = false
     @State private var editMode: EditMode = .inactive
-
-    private enum ActiveAlert: Identifiable {
-        case delete
-        case permit
-
-        var id: Int { hashValue }
-    }
-
-    @State private var activeAlert: ActiveAlert?
 
     private enum SortOption: String, CaseIterable, Identifiable {
         case name = "Name"
@@ -95,24 +82,6 @@ struct MemberView: View {
                             }
                         }
                     }
-                    .swipeActions {
-                        if userPermit > 0 && member.permit != 2 {
-                            Button(role: .destructive) {
-                                selectedMember = member
-                                activeAlert = .delete
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                        if userPermit == 2 && member.permit != 2 {
-                            Button {
-                                selectedMember = member
-                                showPermitChoice = true
-                            } label: {
-                                Label("Permit", systemImage: "pencil")
-                            }
-                        }
-                    }
                 }
                 .onMove(perform: move)
             }
@@ -141,42 +110,6 @@ struct MemberView: View {
             }
             .onChange(of: sortOption) {
                 sortMembers()
-            }
-            .confirmationDialog("Select Permit", isPresented: $showPermitChoice, titleVisibility: .visible) {
-                Button("Permit 0") { newPermit = 0; activeAlert = .permit }
-                Button("Permit 1") { newPermit = 1; activeAlert = .permit }
-                Button("Permit 2") { newPermit = 2; activeAlert = .permit }
-                Button("Cancel", role: .cancel) {}
-            }
-            .alert(item: $activeAlert) { alert in
-                switch alert {
-                case .delete:
-                    return Alert(
-                        title: Text("Confirm Delete"),
-                        message: Text("Are you sure you want to delete \(selectedMember?.username ?? "this user")?"),
-                        primaryButton: .destructive(Text("Delete")) {
-                            if let member = selectedMember, member.permit != 2 {
-                                _ = DatabaseManager.shared.deleteUser(id: member.id)
-                                members = DatabaseManager.shared.fetchMembers()
-                                sortMembers()
-                            }
-                        },
-                        secondaryButton: .cancel()
-                    )
-                case .permit:
-                    return Alert(
-                        title: Text("Confirm Permit Change"),
-                        message: Text("Change permit to \(newPermit) for \(selectedMember?.username ?? "user")?"),
-                        primaryButton: .default(Text("Update")) {
-                            if let member = selectedMember, member.permit != 2 {
-                                _ = DatabaseManager.shared.updatePermit(id: member.id, permit: newPermit)
-                                members = DatabaseManager.shared.fetchMembers()
-                                sortMembers()
-                            }
-                        },
-                        secondaryButton: .cancel()
-                    )
-                }
             }
         }
         .environment(\.editMode, $editMode)
