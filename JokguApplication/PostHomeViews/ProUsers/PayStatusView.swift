@@ -35,6 +35,13 @@ struct PayStatusView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Back") { dismiss() }
                 }
+                if userPermit == 9 || userPermit == 2 {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        NavigationLink("Order") {
+                            ReorderMembersView()
+                        }
+                    }
+                }
             }
             .onAppear { loadData() }
         }

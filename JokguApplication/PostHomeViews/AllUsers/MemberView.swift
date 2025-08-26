@@ -120,13 +120,6 @@ struct MemberView: View {
                     }
                     .pickerStyle(.menu)
                 }
-                if userPermit == 9 || userPermit == 2 {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        NavigationLink("Order") {
-                            ReorderMembersView()
-                        }
-                    }
-                }
             }
             .onAppear {
                 members = DatabaseManager.shared.fetchMembers()
