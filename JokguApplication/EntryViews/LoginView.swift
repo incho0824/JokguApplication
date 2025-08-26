@@ -12,6 +12,9 @@ struct LoginView: View {
     @State private var keyCodeInput: String = ""
     @State private var showMemberVerifyView: Bool = false
     @State private var showAddressPrompt: Bool = false
+    @State private var showRecoveryPrompt: Bool = false
+    @State private var recoveryCodeInput: String = ""
+    @State private var recoveryMember: Member? = nil
     @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, kakao: nil, notification: "", playwhen: [], fee: 0, venmo: "")
     @State private var canUseBiometrics = false
     @Environment(\.openURL) private var openURL
@@ -97,6 +100,10 @@ struct LoginView: View {
                     showKeyCodePrompt = true
                 }
 
+                Button("Forgot Password?") {
+                    showRecoveryPrompt = true
+                }
+
                 if loginFailed {
                     Text("Authentication failed")
                         .foregroundColor(.red)
@@ -160,6 +167,43 @@ struct LoginView: View {
                 .padding(.top)
             }
             .padding()
+        }
+        .sheet(isPresented: $showRecoveryPrompt) {
+            VStack(spacing: 16) {
+                TextField("Enter verification code", text: $recoveryCodeInput)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.numberPad)
+                    .padding(.horizontal)
+
+                Text("Ask In Cho for your verification code.\n(SMS Mobile Text Verification is currently disabled because\nIn Cho does not want to pay for the Twilio Account)")
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                HStack {
+                    Button("Cancel") {
+                        showRecoveryPrompt = false
+                        recoveryCodeInput = ""
+                    }
+
+                    Spacer()
+
+                    Button("Confirm") {
+                        if let code = Int(recoveryCodeInput), code != 0,
+                           let member = DatabaseManager.shared.fetchMemberByRecovery(code: code) {
+                            showRecoveryPrompt = false
+                            recoveryCodeInput = ""
+                            recoveryMember = member
+                        }
+                    }
+                    .disabled(recoveryCodeInput.isEmpty)
+                }
+                .padding(.top)
+            }
+            .padding()
+        }
+        .sheet(item: $recoveryMember) { member in
+            RegisterView(member: member)
         }
         .sheet(isPresented: $showMemberVerifyView) {
             MemberVerificationView()

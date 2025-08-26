@@ -307,6 +307,53 @@ class DatabaseManager {
         return member
     }
 
+    func fetchMemberByRecovery(code: Int) -> Member? {
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member WHERE recovery = ? LIMIT 1;"
+        var statement: OpaquePointer?
+        var member: Member? = nil
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(code))
+            if sqlite3_step(statement) == SQLITE_ROW {
+                let id = Int(sqlite3_column_int(statement, 0))
+                var username = ""
+                if let uString = sqlite3_column_text(statement, 1) {
+                    username = String(cString: uString)
+                }
+                var firstName = ""
+                if let fString = sqlite3_column_text(statement, 2) {
+                    firstName = String(cString: fString)
+                }
+                var lastName = ""
+                if let lString = sqlite3_column_text(statement, 3) {
+                    lastName = String(cString: lString)
+                }
+                var phoneNumber = ""
+                if let phString = sqlite3_column_text(statement, 4) {
+                    phoneNumber = String(cString: phString)
+                }
+                var dob = ""
+                if let dString = sqlite3_column_text(statement, 5) {
+                    dob = String(cString: dString)
+                }
+                var pictureData: Data? = nil
+                if let blob = sqlite3_column_blob(statement, 6) {
+                    let length = Int(sqlite3_column_bytes(statement, 6))
+                    pictureData = Data(bytes: blob, count: length)
+                }
+                let attendance = Int(sqlite3_column_int(statement, 7))
+                let permit = Int(sqlite3_column_int(statement, 8))
+                let guest = Int(sqlite3_column_int(statement, 9))
+                let today = Int(sqlite3_column_int(statement, 10))
+                let syncd = Int(sqlite3_column_int(statement, 11))
+                let orderIndex = Int(sqlite3_column_int(statement, 12))
+                let recoveryVal = Int(sqlite3_column_int(statement, 13))
+                member = Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recoveryVal)
+            }
+        }
+        sqlite3_finalize(statement)
+        return member
+    }
+
     func fetchUnsyncedMembers() -> [Member] {
         let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member WHERE syncd = 0;"
         var statement: OpaquePointer?
