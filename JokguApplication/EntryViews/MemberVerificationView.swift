@@ -67,6 +67,11 @@ struct MemberVerificationView: View {
             VStack(spacing: 16) {
                 TextField("Enter verification code", text: $inputCode)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .onChange(of: inputCode) { _, newValue in
+                        inputCode = newValue.filter { $0.isLetter || $0.isNumber }.uppercased()
+                    }
                     .padding()
                 Text("Ask In Cho for your code.\n(SMS Mobile Text Verification is currently disabled because\nIn Cho does not want to pay for the Twilio Account)")
                     .font(.footnote)
