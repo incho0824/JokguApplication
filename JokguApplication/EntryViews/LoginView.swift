@@ -64,6 +64,15 @@ struct LoginView: View {
                 SecureField("Password", text: $password)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
+                    .overlay(alignment: .trailing) {
+                        if canUseBiometrics {
+                            Button(action: authenticateWithBiometrics) {
+                                Image(systemName: "faceid")
+                                    .foregroundColor(.gray)
+                            }
+                            .padding(.trailing, 12)
+                        }
+                    }
 
                 Button("Login") {
                     let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
@@ -83,12 +92,6 @@ struct LoginView: View {
                     }
                 }
                 .padding(.top)
-
-                if canUseBiometrics {
-                    Button("Login with Face ID") {
-                        authenticateWithBiometrics()
-                    }
-                }
 
                 Button("Register") {
                     showKeyCodePrompt = true
