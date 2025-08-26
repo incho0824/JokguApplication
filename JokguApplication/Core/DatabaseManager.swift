@@ -1,6 +1,7 @@
 import Foundation
 import SQLite3
 import CryptoKit
+import FirebaseFirestore
 
 struct KeyCode: Identifiable {
     let id: Int
@@ -40,6 +41,7 @@ struct UserFields {
 class DatabaseManager {
     static let shared = DatabaseManager()
     let db: OpaquePointer?
+    private let db = Firestore.firestore()
 
     private init() {
         var dbPointer: OpaquePointer? = nil
