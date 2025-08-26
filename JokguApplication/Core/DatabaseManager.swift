@@ -29,6 +29,7 @@ struct Member: Identifiable {
     var today: Int
     var syncd: Int
     var orderIndex: Int
+    var recovery: Int
 }
 
 struct UserFields {
@@ -54,7 +55,7 @@ class DatabaseManager {
 
     private func createTables() {
         let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT, address TEXT, welcome TEXT, youtube TEXT, kakao TEXT, notification TEXT, playwhen TEXT, fee INTEGER DEFAULT 0, venmo TEXT);"
-        let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, firstname TEXT, lastname TEXT, phonenumber TEXT, dob TEXT, picture BLOB, attendance INTEGER DEFAULT 0, permit INTEGER DEFAULT 0, guest INTEGER DEFAULT 0, today INTEGER DEFAULT 0, syncd INTEGER DEFAULT 0);"
+        let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, firstname TEXT, lastname TEXT, phonenumber TEXT, dob TEXT, picture BLOB, attendance INTEGER DEFAULT 0, permit INTEGER DEFAULT 0, guest INTEGER DEFAULT 0, today INTEGER DEFAULT 0, syncd INTEGER DEFAULT 0, recovery INTEGER DEFAULT 0);"
         if sqlite3_exec(db, createManagementTable, nil, nil, nil) != SQLITE_OK {
             print("Could not create management table")
         } else {
@@ -85,6 +86,8 @@ class DatabaseManager {
         sqlite3_exec(db, "ALTER TABLE member ADD COLUMN guest INTEGER DEFAULT 0;", nil, nil, nil)
         // attempt to add orderIndex column for existing databases
         sqlite3_exec(db, "ALTER TABLE member ADD COLUMN orderIndex INTEGER DEFAULT 0;", nil, nil, nil)
+        // attempt to add recovery column for existing databases
+        sqlite3_exec(db, "ALTER TABLE member ADD COLUMN recovery INTEGER DEFAULT 0;", nil, nil, nil)
         // attempt to add new management columns for existing databases
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN welcome TEXT;", nil, nil, nil)
         sqlite3_exec(db, "ALTER TABLE management ADD COLUMN youtube TEXT;", nil, nil, nil)
@@ -165,7 +168,7 @@ class DatabaseManager {
     }
 
     func fetchMembers() -> [Member] {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex FROM member ORDER BY orderIndex;"
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member ORDER BY orderIndex;"
         var statement: OpaquePointer?
         var items: [Member] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -202,7 +205,8 @@ class DatabaseManager {
                 let today = Int(sqlite3_column_int(statement, 10))
                 let syncd = Int(sqlite3_column_int(statement, 11))
                 let orderIndex = Int(sqlite3_column_int(statement, 12))
-                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex))
+                let recovery = Int(sqlite3_column_int(statement, 13))
+                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery))
         }
         }
         sqlite3_finalize(statement)
@@ -210,7 +214,7 @@ class DatabaseManager {
     }
 
     func fetchTodayMembers() -> [Member] {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex FROM member WHERE today = 1;"
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member WHERE today = 1;"
         var statement: OpaquePointer?
         var items: [Member] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -247,7 +251,8 @@ class DatabaseManager {
                 let today = Int(sqlite3_column_int(statement, 10))
                 let syncd = Int(sqlite3_column_int(statement, 11))
                 let orderIndex = Int(sqlite3_column_int(statement, 12))
-                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex))
+                let recovery = Int(sqlite3_column_int(statement, 13))
+                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery))
         }
         }
         sqlite3_finalize(statement)
@@ -255,7 +260,7 @@ class DatabaseManager {
     }
 
     func fetchUser(username: String) -> Member? {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex FROM member WHERE username = ? LIMIT 1;"
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member WHERE username = ? LIMIT 1;"
         var statement: OpaquePointer?
         var member: Member? = nil
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -294,7 +299,8 @@ class DatabaseManager {
                 let today = Int(sqlite3_column_int(statement, 10))
                 let syncd = Int(sqlite3_column_int(statement, 11))
                 let orderIndex = Int(sqlite3_column_int(statement, 12))
-                member = Member(id: id, username: uname, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex)
+                let recovery = Int(sqlite3_column_int(statement, 13))
+                member = Member(id: id, username: uname, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery)
             }
         }
         sqlite3_finalize(statement)
@@ -302,7 +308,7 @@ class DatabaseManager {
     }
 
     func fetchUnsyncedMembers() -> [Member] {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex FROM member WHERE syncd = 0;"
+        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member WHERE syncd = 0;"
         var statement: OpaquePointer?
         var items: [Member] = []
         if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
@@ -339,7 +345,8 @@ class DatabaseManager {
                 let today = Int(sqlite3_column_int(statement, 10))
                 let syncd = Int(sqlite3_column_int(statement, 11))
                 let orderIndex = Int(sqlite3_column_int(statement, 12))
-                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex))
+                let recovery = Int(sqlite3_column_int(statement, 13))
+                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery))
             }
         }
         sqlite3_finalize(statement)
@@ -347,21 +354,71 @@ class DatabaseManager {
     }
 
     func updateMemberCredentials(id: Int, username: String, password: String) -> Bool {
-        let query = "UPDATE member SET username = ?, password = ?, syncd = 1 WHERE id = ?;"
+        let checkQuery = "SELECT syncd FROM member WHERE id = ?;"
+        var checkStmt: OpaquePointer?
+        var needsRecovery = false
+        if sqlite3_prepare_v2(db, checkQuery, -1, &checkStmt, nil) == SQLITE_OK {
+            sqlite3_bind_int(checkStmt, 1, Int32(id))
+            if sqlite3_step(checkStmt) == SQLITE_ROW {
+                let currentSyncd = sqlite3_column_int(checkStmt, 0)
+                needsRecovery = (currentSyncd == 0)
+            }
+        }
+        sqlite3_finalize(checkStmt)
+
+        let upperUsername = username.uppercased()
+        let hashedPassword = hashPassword(password)
         var statement: OpaquePointer?
         var success = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            let upperUsername = username.uppercased()
-            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-            let hashedPassword = hashPassword(password)
-            sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
-            sqlite3_bind_int(statement, 3, Int32(id))
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
+
+        if needsRecovery {
+            let recoveryCode = generateRecoveryCode()
+            let query = "UPDATE member SET username = ?, password = ?, syncd = 1, recovery = ? WHERE id = ?;"
+            if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+                sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
+                sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
+                sqlite3_bind_int(statement, 3, Int32(recoveryCode))
+                sqlite3_bind_int(statement, 4, Int32(id))
+                if sqlite3_step(statement) == SQLITE_DONE {
+                    success = true
+                }
+            }
+        } else {
+            let query = "UPDATE member SET username = ?, password = ?, syncd = 1 WHERE id = ?;"
+            if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+                sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
+                sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
+                sqlite3_bind_int(statement, 3, Int32(id))
+                if sqlite3_step(statement) == SQLITE_DONE {
+                    success = true
+                }
             }
         }
         sqlite3_finalize(statement)
         return success
+    }
+
+    private func generateRecoveryCode() -> Int {
+        var code: Int
+        repeat {
+            code = Int.random(in: 100000...999999)
+        } while !isRecoveryCodeUnique(code)
+        return code
+    }
+
+    private func isRecoveryCodeUnique(_ code: Int) -> Bool {
+        let query = "SELECT COUNT(*) FROM member WHERE recovery = ?;"
+        var statement: OpaquePointer?
+        var unique = false
+        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_int(statement, 1, Int32(code))
+            if sqlite3_step(statement) == SQLITE_ROW {
+                let count = sqlite3_column_int(statement, 0)
+                unique = (count == 0)
+            }
+        }
+        sqlite3_finalize(statement)
+        return unique
     }
 
     func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) -> Bool {
