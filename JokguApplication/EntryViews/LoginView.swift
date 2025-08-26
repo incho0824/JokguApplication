@@ -1,4 +1,5 @@
 import SwiftUI
+import LocalAuthentication
 
 struct LoginView: View {
     @Binding var isLoggedIn: Bool
@@ -12,6 +13,7 @@ struct LoginView: View {
     @State private var showMemberVerifyView: Bool = false
     @State private var showAddressPrompt: Bool = false
     @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, kakao: nil, notification: "", playwhen: [], fee: 0, venmo: "")
+    @State private var canUseBiometrics = false
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -70,6 +72,9 @@ struct LoginView: View {
                         isLoggedIn = true
                         loginFailed = false
                         userPermit = permit
+                        let defaults = UserDefaults.standard
+                        defaults.set(trimmedUser, forKey: "biometricUsername")
+                        defaults.set(permit, forKey: "biometricPermit")
                     } else {
                         loginFailed = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
@@ -79,12 +84,18 @@ struct LoginView: View {
                 }
                 .padding(.top)
 
+                if canUseBiometrics {
+                    Button("Login with Face ID") {
+                        authenticateWithBiometrics()
+                    }
+                }
+
                 Button("Register") {
                     showKeyCodePrompt = true
                 }
 
                 if loginFailed {
-                    Text("Invalid credentials")
+                    Text("Authentication failed")
                         .foregroundColor(.red)
                 }
             }
@@ -117,6 +128,7 @@ struct LoginView: View {
         }
         .onAppear {
             loadManagement()
+            checkBiometricAvailability()
         }
         .sheet(isPresented: $showKeyCodePrompt) {
             VStack(spacing: 16) {
@@ -161,6 +173,43 @@ struct LoginView: View {
         let encoded = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         if let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)") {
             openURL(url)
+        }
+    }
+
+    private func authenticateWithBiometrics() {
+        let context = LAContext()
+        let reason = "Authenticate to login"
+        context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
+            DispatchQueue.main.async {
+                if success {
+                    let defaults = UserDefaults.standard
+                    if let savedUser = defaults.string(forKey: "biometricUsername") {
+                        loggedInUser = savedUser
+                        userPermit = defaults.integer(forKey: "biometricPermit")
+                        isLoggedIn = true
+                    } else {
+                        loginFailed = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                            loginFailed = false
+                        }
+                    }
+                } else {
+                    loginFailed = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        loginFailed = false
+                    }
+                }
+            }
+        }
+    }
+
+    private func checkBiometricAvailability() {
+        let context = LAContext()
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil),
+           UserDefaults.standard.string(forKey: "biometricUsername") != nil {
+            canUseBiometrics = true
+        } else {
+            canUseBiometrics = false
         }
     }
 }
