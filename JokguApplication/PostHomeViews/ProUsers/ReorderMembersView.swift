@@ -14,9 +14,6 @@ struct ReorderMembersView: View {
         }
         .navigationTitle("Reorder Members")
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button("Done") { dismiss() }
-            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 EditButton()
             }
