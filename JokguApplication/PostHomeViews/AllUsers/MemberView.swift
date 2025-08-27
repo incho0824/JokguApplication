@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import FirebaseFirestore
 
 struct MemberView: View {
     @Environment(\.dismiss) var dismiss
@@ -9,6 +10,7 @@ struct MemberView: View {
     @State private var selectedMember: Member?
     @State private var newPermit: Int = 0
     @State private var showPermitChoice = false
+    @State private var listener: ListenerRegistration? = nil
 
     private enum ActiveAlert: Identifiable {
         case delete
@@ -125,8 +127,13 @@ struct MemberView: View {
                 }
             }
             .onAppear {
-                members = DatabaseManager.shared.fetchMembers()
-                sortMembers()
+                listener = DatabaseManager.shared.listenMembers { updated in
+                    members = updated
+                    sortMembers()
+                }
+            }
+            .onDisappear {
+                listener?.remove()
             }
             .onChange(of: sortOption) {
                 sortMembers()
@@ -146,8 +153,6 @@ struct MemberView: View {
                         primaryButton: .destructive(Text("Delete")) {
                             if let member = selectedMember, member.permit != 2 {
                                 _ = DatabaseManager.shared.deleteUser(id: member.id)
-                                members = DatabaseManager.shared.fetchMembers()
-                                sortMembers()
                             }
                         },
                         secondaryButton: .cancel()
@@ -159,8 +164,6 @@ struct MemberView: View {
                         primaryButton: .default(Text("Update")) {
                             if let member = selectedMember, member.permit != 2 {
                                 _ = DatabaseManager.shared.updatePermit(id: member.id, permit: newPermit)
-                                members = DatabaseManager.shared.fetchMembers()
-                                sortMembers()
                             }
                         },
                         secondaryButton: .cancel()

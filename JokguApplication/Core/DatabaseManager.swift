@@ -1,7 +1,7 @@
 import Foundation
-import SQLite3
-import CryptoKit
 import FirebaseFirestore
+import FirebaseFirestoreSwift
+import CryptoKit
 
 struct KeyCode: Identifiable {
     let id: Int
@@ -40,717 +40,385 @@ struct UserFields {
 
 class DatabaseManager {
     static let shared = DatabaseManager()
-    let db: OpaquePointer?
-    private let db = Firestore.firestore()
+    private let db: Firestore
 
     private init() {
-        var dbPointer: OpaquePointer? = nil
-        let fileURL = try! FileManager.default
-            .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-            .appendingPathComponent("users.sqlite")
-        if sqlite3_open(fileURL.path, &dbPointer) != SQLITE_OK {
-            print("Unable to open database")
-        }
-        db = dbPointer
-        createTables()
+        let firestore = Firestore.firestore()
+        let settings = firestore.settings
+        settings.isPersistenceEnabled = true
+        firestore.settings = settings
+        self.db = firestore
     }
 
-    private func createTables() {
-        let createManagementTable = "CREATE TABLE IF NOT EXISTS management(id INTEGER PRIMARY KEY AUTOINCREMENT, keycode TEXT, address TEXT, welcome TEXT, youtube TEXT, kakao TEXT, notification TEXT, playwhen TEXT, fee INTEGER DEFAULT 0, venmo TEXT);"
-        let createMemberTable = "CREATE TABLE IF NOT EXISTS member(id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, firstname TEXT, lastname TEXT, phonenumber TEXT, dob TEXT, picture BLOB, attendance INTEGER DEFAULT 0, permit INTEGER DEFAULT 0, guest INTEGER DEFAULT 0, today INTEGER DEFAULT 0, syncd INTEGER DEFAULT 0, recovery INTEGER DEFAULT 0);"
-        if sqlite3_exec(db, createManagementTable, nil, nil, nil) != SQLITE_OK {
-            print("Could not create management table")
-        } else {
-            // ensure there is always exactly one management row
-            let countQuery = "SELECT COUNT(*) FROM management;"
-            var countStmt: OpaquePointer?
-            if sqlite3_prepare_v2(db, countQuery, -1, &countStmt, nil) == SQLITE_OK {
-                if sqlite3_step(countStmt) == SQLITE_ROW {
-                    let count = sqlite3_column_int(countStmt, 0)
-                    if count == 0 {
-                        let insertDefault = "INSERT INTO management (keycode, address, welcome, youtube, kakao, notification, playwhen, fee, venmo) VALUES ('1234', '', '', '', '', '', '', 0, '');"
-                        sqlite3_exec(db, insertDefault, nil, nil, nil)
-                    }
-                }
-            }
-            sqlite3_finalize(countStmt)
-        }
-        if sqlite3_exec(db, createMemberTable, nil, nil, nil) != SQLITE_OK {
-            print("Could not create member table")
-        }
-        // attempt to add picture column for existing databases
-        sqlite3_exec(db, "ALTER TABLE member ADD COLUMN picture BLOB;", nil, nil, nil)
-        // attempt to add today column for existing databases
-        sqlite3_exec(db, "ALTER TABLE member ADD COLUMN today INTEGER DEFAULT 0;", nil, nil, nil)
-        // attempt to add syncd column for existing databases
-        sqlite3_exec(db, "ALTER TABLE member ADD COLUMN syncd INTEGER DEFAULT 0;", nil, nil, nil)
-        // attempt to add guest column for existing databases
-        sqlite3_exec(db, "ALTER TABLE member ADD COLUMN guest INTEGER DEFAULT 0;", nil, nil, nil)
-        // attempt to add orderIndex column for existing databases
-        sqlite3_exec(db, "ALTER TABLE member ADD COLUMN orderIndex INTEGER DEFAULT 0;", nil, nil, nil)
-        // attempt to add recovery column for existing databases
-        sqlite3_exec(db, "ALTER TABLE member ADD COLUMN recovery INTEGER DEFAULT 0;", nil, nil, nil)
-        // attempt to add new management columns for existing databases
-        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN welcome TEXT;", nil, nil, nil)
-        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN youtube TEXT;", nil, nil, nil)
-        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN kakao TEXT;", nil, nil, nil)
-        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN notification TEXT;", nil, nil, nil)
-        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN address TEXT;", nil, nil, nil)
-        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN playwhen TEXT;", nil, nil, nil)
-        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN fee INTEGER DEFAULT 0;", nil, nil, nil)
-        sqlite3_exec(db, "ALTER TABLE management ADD COLUMN venmo TEXT;", nil, nil, nil)
-        let createUserFieldsTable = "CREATE TABLE IF NOT EXISTS user_fields(username TEXT PRIMARY KEY, field1 INTEGER, field2 INTEGER, field3 INTEGER, field4 INTEGER, field5 INTEGER, field6 INTEGER, field7 INTEGER, field8 INTEGER, field9 INTEGER, field10 INTEGER, field11 INTEGER, field12 INTEGER);"
-        if sqlite3_exec(db, createUserFieldsTable, nil, nil, nil) != SQLITE_OK {
-            print("Could not create user_fields table")
+    // MARK: - Helpers
+    private func hashPassword(_ password: String) -> String {
+        let hash = SHA256.hash(data: password.data(using: .utf8) ?? Data())
+        return hash.compactMap { String(format: "%02x", $0) }.joined()
+    }
+
+    private func pictureString(_ data: Data?) -> String? {
+        guard let data = data else { return nil }
+        return data.base64EncodedString()
+    }
+
+    private func pictureData(_ string: String?) -> Data? {
+        guard let string = string else { return nil }
+        return Data(base64Encoded: string)
+    }
+
+    private func memberFromDoc(_ doc: DocumentSnapshot) -> Member? {
+        guard let data = doc.data() else { return nil }
+        let id = data["id"] as? Int ?? 0
+        let username = data["username"] as? String ?? ""
+        let firstName = data["firstname"] as? String ?? ""
+        let lastName = data["lastname"] as? String ?? ""
+        let phoneNumber = data["phonenumber"] as? String ?? ""
+        let dob = data["dob"] as? String ?? ""
+        let picture = pictureData(data["picture"] as? String)
+        let attendance = data["attendance"] as? Int ?? 0
+        let permit = data["permit"] as? Int ?? 0
+        let guest = data["guest"] as? Int ?? 0
+        let today = data["today"] as? Int ?? 0
+        let syncd = data["syncd"] as? Int ?? 0
+        let orderIndex = data["orderIndex"] as? Int ?? 0
+        let recovery = data["recovery"] as? Int ?? 0
+        return Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: picture, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery)
+    }
+
+    private func keyCodeFromDoc(_ doc: DocumentSnapshot) -> KeyCode? {
+        guard let data = doc.data() else { return nil }
+        let id = data["id"] as? Int ?? 0
+        let code = data["keycode"] as? String ?? ""
+        let address = data["address"] as? String ?? ""
+        let welcome = data["welcome"] as? String ?? ""
+        let youtubeString = data["youtube"] as? String
+        let kakaoString = data["kakao"] as? String
+        let notification = data["notification"] as? String ?? ""
+        let playwhen = data["playwhen"] as? [String] ?? []
+        let fee = data["fee"] as? Int ?? 0
+        let venmo = data["venmo"] as? String ?? ""
+        return KeyCode(id: id, code: code, address: address, welcome: welcome, youtube: youtubeString != nil ? URL(string: youtubeString!) : nil, kakao: kakaoString != nil ? URL(string: kakaoString!) : nil, notification: notification, playwhen: playwhen, fee: fee, venmo: venmo)
+    }
+
+    private func memberDocument(id: Int, completion: @escaping (DocumentReference?) -> Void) {
+        db.collection("member").whereField("id", isEqualTo: id).limit(to: 1).getDocuments { snapshot, _ in
+            completion(snapshot?.documents.first?.reference)
         }
     }
 
+    // MARK: - Authentication & Users
     func userExists(_ username: String) -> Bool {
-        let query = "SELECT 1 FROM member WHERE username = ? LIMIT 1;"
-        var statement: OpaquePointer?
+        let sem = DispatchSemaphore(value: 0)
         var exists = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            let upperUsername = username.uppercased()
-            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-            if sqlite3_step(statement) == SQLITE_ROW {
-                exists = true
-            }
+        db.collection("member").whereField("username", isEqualTo: username.uppercased()).getDocuments { snapshot, _ in
+            exists = snapshot?.documents.isEmpty == false
+            sem.signal()
         }
-        sqlite3_finalize(statement)
+        sem.wait()
         return exists
     }
 
     func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) -> Bool {
         let upperUsername = username.uppercased()
         guard !userExists(upperUsername) else { return false }
-        let insertSQL = "INSERT INTO member (username, password, firstname, lastname, phonenumber, dob, picture, syncd, orderIndex) VALUES (?, ?, ?, ?, ?, ?, ?, 1, (SELECT IFNULL(MAX(orderIndex), -1) + 1 FROM member));"
-        var statement: OpaquePointer?
+        let sem = DispatchSemaphore(value: 0)
         var success = false
-        if sqlite3_prepare_v2(db, insertSQL, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-            let hashedPassword = hashPassword(password)
-            sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 3, NSString(string: firstName).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 4, NSString(string: lastName).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 5, NSString(string: phoneNumber).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 6, NSString(string: dob).utf8String, -1, nil)
-            if let picture = picture {
-                _ = picture.withUnsafeBytes { bytes in
-                    sqlite3_bind_blob(statement, 7, bytes.baseAddress, Int32(picture.count), nil)
-                }
-            } else {
-                sqlite3_bind_null(statement, 7)
-            }
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
+        db.collection("member").getDocuments { snapshot, _ in
+            let newId = (snapshot?.documents.compactMap { $0.data()["id"] as? Int }.max() ?? 0) + 1
+            var data: [String: Any] = [
+                "id": newId,
+                "username": upperUsername,
+                "password": self.hashPassword(password),
+                "firstname": firstName,
+                "lastname": lastName,
+                "phonenumber": phoneNumber,
+                "dob": dob,
+                "attendance": 0,
+                "permit": 0,
+                "guest": 0,
+                "today": 0,
+                "syncd": 1,
+                "orderIndex": newId,
+                "recovery": Int.random(in: 100000...999999)
+            ]
+            if let picture = picture { data["picture"] = self.pictureString(picture) }
+            self.db.collection("member").addDocument(data: data) { error in
+                success = error == nil
+                sem.signal()
             }
         }
-        sqlite3_finalize(statement)
-        if success {
-            _ = saveUserFields(username: upperUsername, fields: Array(repeating: 0, count: 12))
-        }
+        sem.wait()
         return success
     }
 
     func validateUser(username: String, password: String) -> Int? {
-        let query = "SELECT permit FROM member WHERE username = ? AND password = ? LIMIT 1;"
-        var statement: OpaquePointer?
-        var permit: Int? = nil
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            let upperUsername = username.uppercased()
-            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-            let hashedPassword = hashPassword(password)
-            sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
-            if sqlite3_step(statement) == SQLITE_ROW {
-                permit = Int(sqlite3_column_int(statement, 0))
+        let sem = DispatchSemaphore(value: 0)
+        var permit: Int?
+        db.collection("member")
+            .whereField("username", isEqualTo: username.uppercased())
+            .whereField("password", isEqualTo: hashPassword(password))
+            .limit(to: 1)
+            .getDocuments { snapshot, _ in
+                if let doc = snapshot?.documents.first {
+                    permit = doc.data()["permit"] as? Int
+                }
+                sem.signal()
             }
-        }
-        sqlite3_finalize(statement)
+        sem.wait()
         return permit
     }
 
     func fetchMembers() -> [Member] {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member ORDER BY orderIndex;"
-        var statement: OpaquePointer?
+        let sem = DispatchSemaphore(value: 0)
         var items: [Member] = []
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            while sqlite3_step(statement) == SQLITE_ROW {
-                let id = Int(sqlite3_column_int(statement, 0))
-                var username = ""
-                if let uString = sqlite3_column_text(statement, 1) {
-                    username = String(cString: uString)
-                }
-                var firstName = ""
-                if let fString = sqlite3_column_text(statement, 2) {
-                    firstName = String(cString: fString)
-                }
-                var lastName = ""
-                if let lString = sqlite3_column_text(statement, 3) {
-                    lastName = String(cString: lString)
-                }
-                var phoneNumber = ""
-                if let phString = sqlite3_column_text(statement, 4) {
-                    phoneNumber = String(cString: phString)
-                }
-                var dob = ""
-                if let dString = sqlite3_column_text(statement, 5) {
-                    dob = String(cString: dString)
-                }
-                var pictureData: Data? = nil
-                if let blob = sqlite3_column_blob(statement, 6) {
-                    let length = Int(sqlite3_column_bytes(statement, 6))
-                    pictureData = Data(bytes: blob, count: length)
-                }
-                let attendance = Int(sqlite3_column_int(statement, 7))
-                let permit = Int(sqlite3_column_int(statement, 8))
-                let guest = Int(sqlite3_column_int(statement, 9))
-                let today = Int(sqlite3_column_int(statement, 10))
-                let syncd = Int(sqlite3_column_int(statement, 11))
-                let orderIndex = Int(sqlite3_column_int(statement, 12))
-                let recovery = Int(sqlite3_column_int(statement, 13))
-                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery))
+        db.collection("member").order(by: "orderIndex").getDocuments { snapshot, _ in
+            if let docs = snapshot?.documents {
+                items = docs.compactMap { self.memberFromDoc($0) }
+            }
+            sem.signal()
         }
-        }
-        sqlite3_finalize(statement)
+        sem.wait()
         return items
     }
 
+    func listenMembers(completion: @escaping ([Member]) -> Void) -> ListenerRegistration {
+        return db.collection("member").order(by: "orderIndex").addSnapshotListener { snapshot, _ in
+            let members = snapshot?.documents.compactMap { self.memberFromDoc($0) } ?? []
+            completion(members)
+        }
+    }
+
     func fetchTodayMembers() -> [Member] {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member WHERE today = 1;"
-        var statement: OpaquePointer?
+        let sem = DispatchSemaphore(value: 0)
         var items: [Member] = []
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            while sqlite3_step(statement) == SQLITE_ROW {
-                let id = Int(sqlite3_column_int(statement, 0))
-                var username = ""
-                if let uString = sqlite3_column_text(statement, 1) {
-                    username = String(cString: uString)
-                }
-                var firstName = ""
-                if let fString = sqlite3_column_text(statement, 2) {
-                    firstName = String(cString: fString)
-                }
-                var lastName = ""
-                if let lString = sqlite3_column_text(statement, 3) {
-                    lastName = String(cString: lString)
-                }
-                var phoneNumber = ""
-                if let phString = sqlite3_column_text(statement, 4) {
-                    phoneNumber = String(cString: phString)
-                }
-                var dob = ""
-                if let dString = sqlite3_column_text(statement, 5) {
-                    dob = String(cString: dString)
-                }
-                var pictureData: Data? = nil
-                if let blob = sqlite3_column_blob(statement, 6) {
-                    let length = Int(sqlite3_column_bytes(statement, 6))
-                    pictureData = Data(bytes: blob, count: length)
-                }
-                let attendance = Int(sqlite3_column_int(statement, 7))
-                let permit = Int(sqlite3_column_int(statement, 8))
-                let guest = Int(sqlite3_column_int(statement, 9))
-                let today = Int(sqlite3_column_int(statement, 10))
-                let syncd = Int(sqlite3_column_int(statement, 11))
-                let orderIndex = Int(sqlite3_column_int(statement, 12))
-                let recovery = Int(sqlite3_column_int(statement, 13))
-                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery))
+        db.collection("member").whereField("today", isEqualTo: 1).getDocuments { snapshot, _ in
+            if let docs = snapshot?.documents {
+                items = docs.compactMap { self.memberFromDoc($0) }
+            }
+            sem.signal()
         }
-        }
-        sqlite3_finalize(statement)
+        sem.wait()
         return items
     }
 
     func fetchUser(username: String) -> Member? {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member WHERE username = ? LIMIT 1;"
-        var statement: OpaquePointer?
-        var member: Member? = nil
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            let upperUsername = username.uppercased()
-            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-            if sqlite3_step(statement) == SQLITE_ROW {
-                let id = Int(sqlite3_column_int(statement, 0))
-                var uname = ""
-                if let uString = sqlite3_column_text(statement, 1) {
-                    uname = String(cString: uString)
-                }
-                var firstName = ""
-                if let fString = sqlite3_column_text(statement, 2) {
-                    firstName = String(cString: fString)
-                }
-                var lastName = ""
-                if let lString = sqlite3_column_text(statement, 3) {
-                    lastName = String(cString: lString)
-                }
-                var phoneNumber = ""
-                if let phString = sqlite3_column_text(statement, 4) {
-                    phoneNumber = String(cString: phString)
-                }
-                var dob = ""
-                if let dString = sqlite3_column_text(statement, 5) {
-                    dob = String(cString: dString)
-                }
-                var pictureData: Data? = nil
-                if let blob = sqlite3_column_blob(statement, 6) {
-                    let length = Int(sqlite3_column_bytes(statement, 6))
-                    pictureData = Data(bytes: blob, count: length)
-                }
-                let attendance = Int(sqlite3_column_int(statement, 7))
-                let permit = Int(sqlite3_column_int(statement, 8))
-                let guest = Int(sqlite3_column_int(statement, 9))
-                let today = Int(sqlite3_column_int(statement, 10))
-                let syncd = Int(sqlite3_column_int(statement, 11))
-                let orderIndex = Int(sqlite3_column_int(statement, 12))
-                let recovery = Int(sqlite3_column_int(statement, 13))
-                member = Member(id: id, username: uname, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery)
-            }
+        let sem = DispatchSemaphore(value: 0)
+        var member: Member?
+        db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, _ in
+            if let doc = snapshot?.documents.first { member = self.memberFromDoc(doc) }
+            sem.signal()
         }
-        sqlite3_finalize(statement)
+        sem.wait()
         return member
     }
 
     func fetchMemberByRecovery(code: Int) -> Member? {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member WHERE recovery = ? LIMIT 1;"
-        var statement: OpaquePointer?
-        var member: Member? = nil
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(code))
-            if sqlite3_step(statement) == SQLITE_ROW {
-                let id = Int(sqlite3_column_int(statement, 0))
-                var username = ""
-                if let uString = sqlite3_column_text(statement, 1) {
-                    username = String(cString: uString)
-                }
-                var firstName = ""
-                if let fString = sqlite3_column_text(statement, 2) {
-                    firstName = String(cString: fString)
-                }
-                var lastName = ""
-                if let lString = sqlite3_column_text(statement, 3) {
-                    lastName = String(cString: lString)
-                }
-                var phoneNumber = ""
-                if let phString = sqlite3_column_text(statement, 4) {
-                    phoneNumber = String(cString: phString)
-                }
-                var dob = ""
-                if let dString = sqlite3_column_text(statement, 5) {
-                    dob = String(cString: dString)
-                }
-                var pictureData: Data? = nil
-                if let blob = sqlite3_column_blob(statement, 6) {
-                    let length = Int(sqlite3_column_bytes(statement, 6))
-                    pictureData = Data(bytes: blob, count: length)
-                }
-                let attendance = Int(sqlite3_column_int(statement, 7))
-                let permit = Int(sqlite3_column_int(statement, 8))
-                let guest = Int(sqlite3_column_int(statement, 9))
-                let today = Int(sqlite3_column_int(statement, 10))
-                let syncd = Int(sqlite3_column_int(statement, 11))
-                let orderIndex = Int(sqlite3_column_int(statement, 12))
-                let recoveryVal = Int(sqlite3_column_int(statement, 13))
-                member = Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recoveryVal)
-            }
+        let sem = DispatchSemaphore(value: 0)
+        var member: Member?
+        db.collection("member").whereField("recovery", isEqualTo: code).limit(to: 1).getDocuments { snapshot, _ in
+            if let doc = snapshot?.documents.first { member = self.memberFromDoc(doc) }
+            sem.signal()
         }
-        sqlite3_finalize(statement)
+        sem.wait()
         return member
     }
 
     func fetchUnsyncedMembers() -> [Member] {
-        let query = "SELECT id, username, firstname, lastname, phonenumber, dob, picture, attendance, permit, guest, today, syncd, orderIndex, recovery FROM member WHERE syncd = 0;"
-        var statement: OpaquePointer?
+        let sem = DispatchSemaphore(value: 0)
         var items: [Member] = []
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            while sqlite3_step(statement) == SQLITE_ROW {
-                let id = Int(sqlite3_column_int(statement, 0))
-                var username = ""
-                if let uString = sqlite3_column_text(statement, 1) {
-                    username = String(cString: uString)
-                }
-                var firstName = ""
-                if let fString = sqlite3_column_text(statement, 2) {
-                    firstName = String(cString: fString)
-                }
-                var lastName = ""
-                if let lString = sqlite3_column_text(statement, 3) {
-                    lastName = String(cString: lString)
-                }
-                var phoneNumber = ""
-                if let phString = sqlite3_column_text(statement, 4) {
-                    phoneNumber = String(cString: phString)
-                }
-                var dob = ""
-                if let dString = sqlite3_column_text(statement, 5) {
-                    dob = String(cString: dString)
-                }
-                var pictureData: Data? = nil
-                if let blob = sqlite3_column_blob(statement, 6) {
-                    let length = Int(sqlite3_column_bytes(statement, 6))
-                    pictureData = Data(bytes: blob, count: length)
-                }
-                let attendance = Int(sqlite3_column_int(statement, 7))
-                let permit = Int(sqlite3_column_int(statement, 8))
-                let guest = Int(sqlite3_column_int(statement, 9))
-                let today = Int(sqlite3_column_int(statement, 10))
-                let syncd = Int(sqlite3_column_int(statement, 11))
-                let orderIndex = Int(sqlite3_column_int(statement, 12))
-                let recovery = Int(sqlite3_column_int(statement, 13))
-                items.append(Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: pictureData, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery))
+        db.collection("member").whereField("syncd", isEqualTo: 0).getDocuments { snapshot, _ in
+            if let docs = snapshot?.documents {
+                items = docs.compactMap { self.memberFromDoc($0) }
             }
+            sem.signal()
         }
-        sqlite3_finalize(statement)
+        sem.wait()
         return items
     }
 
-    func updateMemberCredentials(id: Int, username: String, password: String) -> Bool {
-        let checkQuery = "SELECT syncd FROM member WHERE id = ?;"
-        var checkStmt: OpaquePointer?
-        var needsRecovery = false
-        if sqlite3_prepare_v2(db, checkQuery, -1, &checkStmt, nil) == SQLITE_OK {
-            sqlite3_bind_int(checkStmt, 1, Int32(id))
-            if sqlite3_step(checkStmt) == SQLITE_ROW {
-                let currentSyncd = sqlite3_column_int(checkStmt, 0)
-                needsRecovery = (currentSyncd == 0)
-            }
-        }
-        sqlite3_finalize(checkStmt)
-
-        let upperUsername = username.uppercased()
-        let hashedPassword = hashPassword(password)
-        var statement: OpaquePointer?
+    // MARK: - Updates
+    private func updateMember(id: Int, fields: [String: Any]) -> Bool {
+        let sem = DispatchSemaphore(value: 0)
         var success = false
-
-        if needsRecovery {
-            let recoveryCode = generateRecoveryCode()
-            let query = "UPDATE member SET username = ?, password = ?, syncd = 1, recovery = ? WHERE id = ?;"
-            if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-                sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-                sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
-                sqlite3_bind_int(statement, 3, Int32(recoveryCode))
-                sqlite3_bind_int(statement, 4, Int32(id))
-                if sqlite3_step(statement) == SQLITE_DONE {
-                    success = true
-                }
-            }
-        } else {
-            let query = "UPDATE member SET username = ?, password = ?, syncd = 1 WHERE id = ?;"
-            if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-                sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-                sqlite3_bind_text(statement, 2, NSString(string: hashedPassword).utf8String, -1, nil)
-                sqlite3_bind_int(statement, 3, Int32(id))
-                if sqlite3_step(statement) == SQLITE_DONE {
-                    success = true
-                }
+        memberDocument(id: id) { ref in
+            ref?.updateData(fields) { error in
+                success = error == nil
+                sem.signal()
             }
         }
-        sqlite3_finalize(statement)
-        return success
-    }
-
-    private func generateRecoveryCode() -> Int {
-        var code: Int
-        repeat {
-            code = Int.random(in: 100000...999999)
-        } while !isRecoveryCodeUnique(code)
-        return code
-    }
-
-    private func isRecoveryCodeUnique(_ code: Int) -> Bool {
-        let query = "SELECT COUNT(*) FROM member WHERE recovery = ?;"
-        var statement: OpaquePointer?
-        var unique = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(code))
-            if sqlite3_step(statement) == SQLITE_ROW {
-                let count = sqlite3_column_int(statement, 0)
-                unique = (count == 0)
-            }
-        }
-        sqlite3_finalize(statement)
-        return unique
-    }
-
-    func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) -> Bool {
-        let query = "UPDATE member SET firstname = ?, lastname = ?, phonenumber = ?, dob = ?, picture = ? WHERE username = ?;"
-        var statement: OpaquePointer?
-        var success = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, NSString(string: firstName).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 2, NSString(string: lastName).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 3, NSString(string: phoneNumber).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 4, NSString(string: dob).utf8String, -1, nil)
-            if let picture = picture {
-                _ = picture.withUnsafeBytes { bytes in
-                    sqlite3_bind_blob(statement, 5, bytes.baseAddress, Int32(picture.count), nil)
-                }
-            } else {
-                sqlite3_bind_null(statement, 5)
-            }
-            let upperUsername = username.uppercased()
-            sqlite3_bind_text(statement, 6, NSString(string: upperUsername).utf8String, -1, nil)
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
-            }
-        }
-        sqlite3_finalize(statement)
-        return success
-    }
-
-    func updatePassword(username: String, currentPassword: String, newPassword: String) -> Bool {
-        let query = "SELECT password FROM member WHERE username = ? LIMIT 1;"
-        var statement: OpaquePointer?
-        var success = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            let upperUsername = username.uppercased()
-            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-            if sqlite3_step(statement) == SQLITE_ROW {
-                var stored = ""
-                if let cString = sqlite3_column_text(statement, 0) {
-                    stored = String(cString: cString)
-                }
-                let currentHashed = hashPassword(currentPassword)
-                if stored == currentHashed {
-                    sqlite3_finalize(statement)
-                    let update = "UPDATE member SET password = ? WHERE username = ?;"
-                    if sqlite3_prepare_v2(db, update, -1, &statement, nil) == SQLITE_OK {
-                        let newHashed = hashPassword(newPassword)
-                        sqlite3_bind_text(statement, 1, NSString(string: newHashed).utf8String, -1, nil)
-                        sqlite3_bind_text(statement, 2, NSString(string: upperUsername).utf8String, -1, nil)
-                        if sqlite3_step(statement) == SQLITE_DONE {
-                            success = true
-                        }
-                    }
-                }
-            }
-        }
-        sqlite3_finalize(statement)
-        return success
-    }
-
-    func deleteUser(id: Int) -> Bool {
-        let query = "DELETE FROM member WHERE id = ?;"
-        var statement: OpaquePointer?
-        var success = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(id))
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
-            }
-        }
-        sqlite3_finalize(statement)
-        return success
-    }
-
-    func updatePermit(id: Int, permit: Int) -> Bool {
-        let query = "UPDATE member SET permit = ? WHERE id = ?;"
-        var statement: OpaquePointer?
-        var success = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(permit))
-            sqlite3_bind_int(statement, 2, Int32(id))
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
-            }
-        }
-        sqlite3_finalize(statement)
+        sem.wait()
         return success
     }
 
     func updateGuest(id: Int, guest: Int) -> Bool {
-        let query = "UPDATE member SET guest = ? WHERE id = ?;"
-        var statement: OpaquePointer?
-        var success = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(guest))
-            sqlite3_bind_int(statement, 2, Int32(id))
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
-            }
-        }
-        sqlite3_finalize(statement)
-        return success
+        updateMember(id: id, fields: ["guest": guest])
+    }
+
+    func updatePermit(id: Int, permit: Int) -> Bool {
+        updateMember(id: id, fields: ["permit": permit])
     }
 
     func updateOrder(id: Int, order: Int) -> Bool {
-        let query = "UPDATE member SET orderIndex = ? WHERE id = ?;"
-        var statement: OpaquePointer?
+        updateMember(id: id, fields: ["orderIndex": order])
+    }
+
+    func deleteUser(id: Int) -> Bool {
+        let sem = DispatchSemaphore(value: 0)
         var success = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(order))
-            sqlite3_bind_int(statement, 2, Int32(id))
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
+        memberDocument(id: id) { ref in
+            ref?.delete { error in
+                success = error == nil
+                sem.signal()
             }
         }
-        sqlite3_finalize(statement)
+        sem.wait()
+        return success
+    }
+
+    func updateMemberCredentials(id: Int, username: String, password: String) -> Bool {
+        updateMember(id: id, fields: ["username": username.uppercased(), "password": hashPassword(password)])
+    }
+
+    func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) -> Bool {
+        let sem = DispatchSemaphore(value: 0)
+        var success = false
+        var fields: [String: Any] = [
+            "firstname": firstName,
+            "lastname": lastName,
+            "phonenumber": phoneNumber,
+            "dob": dob
+        ]
+        if let picture = picture { fields["picture"] = pictureString(picture) }
+        db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, _ in
+            if let doc = snapshot?.documents.first {
+                doc.reference.updateData(fields) { error in
+                    success = error == nil
+                    sem.signal()
+                }
+            } else {
+                sem.signal()
+            }
+        }
+        sem.wait()
+        return success
+    }
+
+    func updatePassword(username: String, currentPassword: String, newPassword: String) -> Bool {
+        let sem = DispatchSemaphore(value: 0)
+        var success = false
+        let currentHashed = hashPassword(currentPassword)
+        db.collection("member")
+            .whereField("username", isEqualTo: username.uppercased())
+            .whereField("password", isEqualTo: currentHashed)
+            .limit(to: 1)
+            .getDocuments { snapshot, _ in
+                if let doc = snapshot?.documents.first {
+                    doc.reference.updateData(["password": self.hashPassword(newPassword)]) { error in
+                        success = error == nil
+                        sem.signal()
+                    }
+                } else {
+                    sem.signal()
+                }
+            }
+        sem.wait()
         return success
     }
 
     func updateToday(username: String, value: Int) -> Bool {
-        let query = "UPDATE member SET today = ? WHERE username = ?;"
-        var statement: OpaquePointer?
+        let sem = DispatchSemaphore(value: 0)
         var success = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_int(statement, 1, Int32(value))
-            let upperUsername = username.uppercased()
-            sqlite3_bind_text(statement, 2, NSString(string: upperUsername).utf8String, -1, nil)
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
+        db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, _ in
+            if let doc = snapshot?.documents.first {
+                doc.reference.updateData(["today": value]) { error in
+                    success = error == nil
+                    sem.signal()
+                }
+            } else {
+                sem.signal()
             }
         }
-        sqlite3_finalize(statement)
+        sem.wait()
         return success
     }
 
     func resetTodayForAll() {
-        let attendanceQuery = "UPDATE member SET attendance = attendance + 1 WHERE today = 1;"
-        sqlite3_exec(db, attendanceQuery, nil, nil, nil)
-        let resetQuery = "UPDATE member SET today = 0;"
-        sqlite3_exec(db, resetQuery, nil, nil, nil)
+        db.collection("member").getDocuments { snapshot, _ in
+            snapshot?.documents.forEach { $0.reference.updateData(["today": 0]) }
+        }
     }
 
+    // MARK: - Management
+    func fetchManagementData() -> [KeyCode] {
+        let sem = DispatchSemaphore(value: 0)
+        var items: [KeyCode] = []
+        db.collection("management").getDocuments { snapshot, _ in
+            if let docs = snapshot?.documents {
+                items = docs.compactMap { self.keyCodeFromDoc($0) }
+            }
+            sem.signal()
+        }
+        sem.wait()
+        return items
+    }
+
+    func fetchKeyCode() -> String? {
+        fetchManagementData().first?.code
+    }
+
+    func updateManagement(id: Int, code: String, address: String, welcome: String, youtube: URL?, kakao: URL?, notification: String, playwhen: [String], fee: Int, venmo: String) {
+        db.collection("management").whereField("id", isEqualTo: id).limit(to: 1).getDocuments { snapshot, _ in
+            let fields: [String: Any] = [
+                "keycode": code,
+                "address": address,
+                "welcome": welcome,
+                "youtube": youtube?.absoluteString ?? "",
+                "kakao": kakao?.absoluteString ?? "",
+                "notification": notification,
+                "playwhen": playwhen,
+                "fee": fee,
+                "venmo": venmo
+            ]
+            if let doc = snapshot?.documents.first {
+                doc.reference.setData(fields, merge: true)
+            } else {
+                var newFields = fields
+                newFields["id"] = id
+                self.db.collection("management").addDocument(data: newFields)
+            }
+        }
+    }
+
+    // MARK: - User Fields
     func saveUserFields(username: String, fields: [Int]) -> Bool {
-        guard !fields.isEmpty && fields.count <= 12 else { return false }
-        for value in fields {
-            guard (0...100).contains(value) else { return false }
+        let sem = DispatchSemaphore(value: 0)
+        var data: [String: Any] = ["username": username.uppercased()]
+        for (index, value) in fields.enumerated() {
+            data["field\(index + 1)"] = value
         }
-        let query = "INSERT OR REPLACE INTO user_fields (username, field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);"
-        var statement: OpaquePointer?
         var success = false
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            let upperUsername = username.uppercased()
-            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-            for i in 0..<12 {
-                if i < fields.count {
-                    sqlite3_bind_int(statement, Int32(i + 2), Int32(fields[i]))
-                } else {
-                    sqlite3_bind_null(statement, Int32(i + 2))
-                }
-            }
-            if sqlite3_step(statement) == SQLITE_DONE {
-                success = true
-            }
+        db.collection("user_fields").document(username.uppercased()).setData(data) { error in
+            success = error == nil
+            sem.signal()
         }
-        sqlite3_finalize(statement)
+        sem.wait()
         return success
     }
 
     func fetchUserFields(username: String) -> [Int]? {
-        let query = "SELECT field1, field2, field3, field4, field5, field6, field7, field8, field9, field10, field11, field12 FROM user_fields WHERE username = ? LIMIT 1;"
-        var statement: OpaquePointer?
-        var result: [Int]? = nil
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            let upperUsername = username.uppercased()
-            sqlite3_bind_text(statement, 1, NSString(string: upperUsername).utf8String, -1, nil)
-            if sqlite3_step(statement) == SQLITE_ROW {
-                var values: [Int] = []
-                for i in 0..<12 {
-                    if sqlite3_column_type(statement, Int32(i)) != SQLITE_NULL {
-                        values.append(Int(sqlite3_column_int(statement, Int32(i))))
-                    } else {
-                        break
-                    }
+        let sem = DispatchSemaphore(value: 0)
+        var values: [Int]? = nil
+        db.collection("user_fields").document(username.uppercased()).getDocument { doc, _ in
+            if let doc = doc, doc.exists {
+                var arr: [Int] = []
+                for i in 1...12 {
+                    arr.append(doc.data()? ["field\(i)"] as? Int ?? 0)
                 }
-                result = values.isEmpty ? nil : values
+                values = arr
             }
+            sem.signal()
         }
-        sqlite3_finalize(statement)
-        return result
-    }
-
-    private func hashPassword(_ password: String) -> String {
-        let inputData = Data(password.utf8)
-        let hashed = SHA256.hash(data: inputData)
-        return hashed.map { String(format: "%02x", $0) }.joined()
-    }
-
-    func fetchKeyCode() -> String? {
-        let query = "SELECT keycode FROM management LIMIT 1;"
-        var statement: OpaquePointer?
-        var code: String? = nil
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            if sqlite3_step(statement) == SQLITE_ROW {
-                if let cString = sqlite3_column_text(statement, 0) {
-                    code = String(cString: cString)
-                }
-            }
-        }
-        sqlite3_finalize(statement)
-        return code
-    }
-
-    func fetchManagementData() -> [KeyCode] {
-        let query = "SELECT id, keycode, address, welcome, youtube, kakao, notification, playwhen, fee, venmo FROM management;"
-        var statement: OpaquePointer?
-        var items: [KeyCode] = []
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            while sqlite3_step(statement) == SQLITE_ROW {
-                let id = Int(sqlite3_column_int(statement, 0))
-                var code = ""
-                if let cString = sqlite3_column_text(statement, 1) {
-                    code = String(cString: cString)
-                }
-                var address = ""
-                if let lString = sqlite3_column_text(statement, 2) {
-                    address = String(cString: lString)
-                }
-                var welcome = ""
-                if let wString = sqlite3_column_text(statement, 3) {
-                    welcome = String(cString: wString)
-                }
-                var youtube: URL? = nil
-                if let yString = sqlite3_column_text(statement, 4) {
-                    let lowered = String(cString: yString).lowercased()
-                    youtube = URL(string: lowered)
-                }
-                var kakao: URL? = nil
-                if let kString = sqlite3_column_text(statement, 5) {
-                    let lowered = String(cString: kString).lowercased()
-                    kakao = URL(string: lowered)
-                }
-                var notification = ""
-                if let nString = sqlite3_column_text(statement, 6) {
-                    notification = String(cString: nString)
-                }
-                var playwhen: [String] = []
-                if let pString = sqlite3_column_text(statement, 7) {
-                    let text = String(cString: pString)
-                    if !text.isEmpty {
-                        playwhen = text.components(separatedBy: ",")
-                    }
-                }
-                let fee = Int(sqlite3_column_int(statement, 8))
-                var venmo = ""
-                if let vString = sqlite3_column_text(statement, 9) {
-                    venmo = String(cString: vString)
-                }
-                items.append(KeyCode(id: id, code: code, address: address, welcome: welcome, youtube: youtube, kakao: kakao, notification: notification, playwhen: playwhen, fee: fee, venmo: venmo))
-            }
-        }
-        sqlite3_finalize(statement)
-        return items
-    }
-
-    func updateManagement(id: Int, code: String, address: String, welcome: String, youtube: URL?, kakao: URL?, notification: String, playwhen: [String], fee: Int, venmo: String) {
-        let query = "UPDATE management SET keycode = ?, address = ?, welcome = ?, youtube = ?, kakao = ?, notification = ?, playwhen = ?, fee = ?, venmo = ? WHERE id = ?;"
-        var statement: OpaquePointer?
-        if sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, NSString(string: code).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 2, NSString(string: address).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 3, NSString(string: welcome).utf8String, -1, nil)
-            let loweredYoutube = (youtube?.absoluteString.lowercased() ?? "")
-            sqlite3_bind_text(statement, 4, NSString(string: loweredYoutube).utf8String, -1, nil)
-            let loweredKakao = (kakao?.absoluteString.lowercased() ?? "")
-            sqlite3_bind_text(statement, 5, NSString(string: loweredKakao).utf8String, -1, nil)
-            sqlite3_bind_text(statement, 6, NSString(string: notification).utf8String, -1, nil)
-            let playwhenString = playwhen.joined(separator: ",")
-            sqlite3_bind_text(statement, 7, NSString(string: playwhenString).utf8String, -1, nil)
-            sqlite3_bind_int(statement, 8, Int32(fee))
-            sqlite3_bind_text(statement, 9, NSString(string: venmo).utf8String, -1, nil)
-            sqlite3_bind_int(statement, 10, Int32(id))
-            sqlite3_step(statement)
-        }
-        sqlite3_finalize(statement)
+        sem.wait()
+        return values
     }
 }
-
