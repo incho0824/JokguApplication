@@ -38,14 +38,12 @@ struct ReorderMembersView: View {
 
     private func updateOrderIndices() {
         Task {
-            var updates: [(Int, Int)] = []
             for (index, member) in members.enumerated() {
-                updates.append((member.id, index))
+                try? await DatabaseManager.shared.updateOrder(id: member.id, order: index)
             }
             for (offset, member) in guestMembers.enumerated() {
-                updates.append((member.id, members.count + offset))
+                try? await DatabaseManager.shared.updateOrder(id: member.id, order: members.count + offset)
             }
-            try? await DatabaseManager.shared.updateOrders(updates)
         }
     }
 }

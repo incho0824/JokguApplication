@@ -2,14 +2,19 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Management documents: only admins may write
     match /management/{docId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.token.admin == true;
     }
 
+    // Member documents: users may write their own document
     match /member/{docId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == docId;
     }
 
+    // All other documents require authentication
     match /{document=**} {
       allow read, write: if request.auth != null;
     }
