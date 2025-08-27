@@ -199,17 +199,13 @@ struct LoginView: View {
                         let digits = recoveryPhoneNumber.filter { $0.isNumber }
                         let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
                         isSendingRecoveryCode = true
-                        Task {
-                            do {
-                                let id = try await PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil)
-                                await MainActor.run {
+                        PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
+                            DispatchQueue.main.async {
+                                isSendingRecoveryCode = false
+                                if let id = id {
                                     recoveryVerificationID = id
-                                    isSendingRecoveryCode = false
-                                }
-                            } catch {
-                                await MainActor.run {
+                                } else if let error = error {
                                     recoveryError = error.localizedDescription
-                                    isSendingRecoveryCode = false
                                 }
                             }
                         }
