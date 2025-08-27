@@ -56,7 +56,17 @@ final class DatabaseManager: ObservableObject {
     private func listenToManagement() {
         managementListener?.remove()
         managementListener = db.collection("management").addSnapshotListener { snapshot, _ in
-            guard let doc = snapshot?.documents.first,
+            guard let snapshot = snapshot else { return }
+
+            if snapshot.documents.isEmpty {
+                self.db.collection("management").document("default").setData([
+                    "id": 1,
+                    "keycode": "1234"
+                ])
+                return
+            }
+
+            guard let doc = snapshot.documents.first,
                   let item = self.keyCodeFromDoc(doc) else { return }
             DispatchQueue.main.async {
                 self.management = item
