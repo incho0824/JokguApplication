@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UserNotifications
+import UIKit
 
 @main
 struct JokguApplicationApp: App {
@@ -37,7 +38,11 @@ struct JokguApplicationApp: App {
         formatter.dateFormat = "EEEE"
         let today = formatter.string(from: Date())
         let badgeCount = (databaseManager.management?.playwhen.contains(today) == true) ? 1 : 0
-        UNUserNotificationCenter.current().setBadgeCount(badgeCount) { _ in }
+        if #available(iOS 17.0, *) {
+            UNUserNotificationCenter.current().setBadgeCount(badgeCount) { _ in }
+        } else {
+            UIApplication.shared.applicationIconBadgeNumber = badgeCount
+        }
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
                 scheduleNextPlayDayAlert()
