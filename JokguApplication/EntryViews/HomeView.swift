@@ -119,7 +119,6 @@ struct HomeView: View {
         .onAppear {
             UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
             loadManagement()
-            performDailyResetIfNeeded()
             checkTodayStatus()
         }
         .onChange(of: scenePhase) { _, newPhase in
@@ -135,18 +134,6 @@ struct HomeView: View {
             if let item = try? await DatabaseManager.shared.fetchManagementData().first {
                 await MainActor.run { management = item }
             }
-        }
-    }
-
-    private func performDailyResetIfNeeded() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let todayString = formatter.string(from: Date())
-        let defaults = UserDefaults.standard
-        let lastReset = defaults.string(forKey: "lastTodayReset")
-        if lastReset != todayString {
-            DatabaseManager.shared.resetTodayForAll()
-            defaults.set(todayString, forKey: "lastTodayReset")
         }
     }
 
