@@ -23,6 +23,7 @@ class AppDelegate: NSObject, UIApplicationDelegate { //UIResponder
 struct JokguApplicationApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var databaseManager = DatabaseManager.shared
 
     init() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .alert, .sound]) { _, _ in }
@@ -32,33 +33,25 @@ struct JokguApplicationApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(databaseManager)
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 updateAppBadge()
             }
         }
+        .onChange(of: databaseManager.management?.id) { _, _ in
+            updateAppBadge()
+        }
     }
 
     private func updateAppBadge() {
-        Task {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "EEEE"
-            let today = formatter.string(from: Date())
-            let badgeCount: Int
-            do {
-                let managements = try await DatabaseManager.shared.fetchManagementData()
-                if let management = managements.first, management.playwhen.contains(today) {
-                    badgeCount = 1
-                } else {
-                    badgeCount = 0
-                }
-            } catch {
-                badgeCount = 0
-            }
-            UNUserNotificationCenter.current().setBadgeCount(badgeCount) { _ in }
-            scheduleNoonAlertIfNeeded(badgeCount: badgeCount)
-        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        let today = formatter.string(from: Date())
+        let badgeCount = (databaseManager.management?.playwhen.contains(today) == true) ? 1 : 0
+        UNUserNotificationCenter.current().setBadgeCount(badgeCount) { _ in }
+        scheduleNoonAlertIfNeeded(badgeCount: badgeCount)
     }
 
     private func scheduleNoonAlertIfNeeded(badgeCount: Int) {

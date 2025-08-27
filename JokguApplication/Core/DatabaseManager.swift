@@ -1,6 +1,7 @@
 import Foundation
 import FirebaseFirestore
 import CryptoKit
+import Combine
 
 struct KeyCode: Identifiable {
     let id: Int
@@ -37,9 +38,11 @@ struct UserFields {
     var values: [Int]
 }
 
-class DatabaseManager {
+final class DatabaseManager: ObservableObject {
     static let shared = DatabaseManager()
     private let db: Firestore
+    @Published private(set) var management: KeyCode?
+    private var managementListener: ListenerRegistration?
 
     private init() {
         let firestore = Firestore.firestore()
@@ -47,6 +50,18 @@ class DatabaseManager {
         settings.cacheSettings = PersistentCacheSettings()
         firestore.settings = settings
         self.db = firestore
+        listenToManagement()
+    }
+
+    private func listenToManagement() {
+        managementListener?.remove()
+        managementListener = db.collection("management").addSnapshotListener { snapshot, _ in
+            guard let doc = snapshot?.documents.first,
+                  let item = self.keyCodeFromDoc(doc) else { return }
+            DispatchQueue.main.async {
+                self.management = item
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -377,12 +392,18 @@ class DatabaseManager {
 
     // MARK: - Management
     func fetchManagementData() async throws -> [KeyCode] {
-        try await withCheckedThrowingContinuation { continuation in
+        if let management = management {
+            return [management]
+        }
+        return try await withCheckedThrowingContinuation { continuation in
             db.collection("management").getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
                     let items = snapshot?.documents.compactMap { self.keyCodeFromDoc($0) } ?? []
+                    if let first = items.first {
+                        DispatchQueue.main.async { self.management = first }
+                    }
                     continuation.resume(returning: items)
                 }
             }
@@ -390,6 +411,9 @@ class DatabaseManager {
     }
 
     func fetchKeyCode() async throws -> String? {
+        if let management = management {
+            return management.code
+        }
         let items = try await fetchManagementData()
         return items.first?.code
     }

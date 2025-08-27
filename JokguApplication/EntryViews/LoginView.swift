@@ -15,9 +15,9 @@ struct LoginView: View {
     @State private var showRecoveryPrompt: Bool = false
     @State private var recoveryCodeInput: String = ""
     @State private var recoveryMember: Member? = nil
-    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, kakao: nil, notification: "", playwhen: [], fee: 0, venmo: "")
     @State private var canUseBiometrics = false
     @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var databaseManager: DatabaseManager
 
     var body: some View {
         ZStack {
@@ -38,18 +38,18 @@ struct LoginView: View {
                     .frame(width: UIScreen.main.bounds.width * 0.9)
                     .padding(.bottom, 20)
 
-                Text(management.welcome)
+                Text(databaseManager.management?.welcome ?? "")
                     .foregroundColor(.white)
 
                 Button(action: { showAddressPrompt = true }) {
-                    Text(management.address)
+                    Text(databaseManager.management?.address ?? "")
                         .foregroundColor(.blue)
                         .underline()
                 }
-                .disabled(management.address.isEmpty)
+                .disabled((databaseManager.management?.address ?? "").isEmpty)
                 .alert("Open in Maps?", isPresented: $showAddressPrompt) {
                     Button("Open") {
-                        openInMaps(address: management.address)
+                        openInMaps(address: databaseManager.management?.address ?? "")
                     }
                     Button("Cancel", role: .cancel) {}
                 }
@@ -128,7 +128,7 @@ struct LoginView: View {
             .padding(.horizontal)
             .overlay(alignment: .bottomTrailing) {
                 HStack(spacing: 0) {
-                    if let kakaoURL = management.kakao {
+                    if let kakaoURL = databaseManager.management?.kakao {
                         Button {
                             openURL(kakaoURL)
                         } label: {
@@ -138,7 +138,7 @@ struct LoginView: View {
                                 .padding()
                         }
                     }
-                    if let url = management.youtube {
+                    if let url = databaseManager.management?.youtube {
                         Button {
                             openURL(url)
                         } label: {
@@ -152,7 +152,6 @@ struct LoginView: View {
             }
         }
         .onAppear {
-            loadManagement()
             checkBiometricAvailability()
         }
         .sheet(isPresented: $showKeyCodePrompt) {
@@ -171,15 +170,11 @@ struct LoginView: View {
                     Spacer()
 
                     Button("Confirm") {
-                        Task {
-                            let storedCode = (try? await DatabaseManager.shared.fetchKeyCode()) ?? ""
-                            if keyCodeInput == storedCode {
-                                await MainActor.run {
-                                    showKeyCodePrompt = false
-                                    keyCodeInput = ""
-                                    showMemberVerifyView = true
-                                }
-                            }
+                        let storedCode = databaseManager.management?.code ?? ""
+                        if keyCodeInput == storedCode {
+                            showKeyCodePrompt = false
+                            keyCodeInput = ""
+                            showMemberVerifyView = true
                         }
                     }
                 }
@@ -234,14 +229,6 @@ struct LoginView: View {
         }
     }
 
-    private func loadManagement() {
-        Task {
-            if let item = try? await DatabaseManager.shared.fetchManagementData().first {
-                await MainActor.run { management = item }
-            }
-        }
-    }
-
     private func openInMaps(address: String) {
         let encoded = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         if let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)") {
@@ -289,4 +276,5 @@ struct LoginView: View {
 
 #Preview {
     LoginView(isLoggedIn: .constant(false), userPermit: .constant(0), loggedInUser: .constant(""))
+        .environmentObject(DatabaseManager.shared)
 }
