@@ -21,14 +21,14 @@ struct JokguApplicationApp: App {
                 .onAppear {
                     updateAppBadge()
                 }
+                .onChange(of: databaseManager.management?.id) { _, _ in
+                    updateAppBadge()
+                }
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 updateAppBadge()
             }
-        }
-        .onChange(of: databaseManager.management?.id) { _, _ in
-            updateAppBadge()
         }
     }
 
