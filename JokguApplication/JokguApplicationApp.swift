@@ -38,7 +38,11 @@ struct JokguApplicationApp: App {
         let today = formatter.string(from: Date())
         let badgeCount = (databaseManager.management?.playwhen.contains(today) == true) ? 1 : 0
         UNUserNotificationCenter.current().setBadgeCount(badgeCount) { _ in }
-        scheduleNoonAlertIfNeeded(badgeCount: badgeCount)
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
+                scheduleNoonAlertIfNeeded(badgeCount: badgeCount)
+            }
+        }
     }
 
     private func scheduleNoonAlertIfNeeded(badgeCount: Int) {
