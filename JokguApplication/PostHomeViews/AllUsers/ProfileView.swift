@@ -95,14 +95,23 @@ struct ProfileView: View {
                     Divider().padding(.vertical)
 
                     SecureField("Current Password", text: $currentPassword)
+                        .textContentType(.password)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .padding(.horizontal)
 
                     SecureField("New Password", text: $newPassword)
+                        .textContentType(.newPassword)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .padding(.horizontal)
 
                     SecureField("Confirm Password", text: $confirmPassword)
+                        .textContentType(.newPassword)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .padding(.horizontal)
 
