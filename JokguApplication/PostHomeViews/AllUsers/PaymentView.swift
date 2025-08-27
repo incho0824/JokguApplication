@@ -110,14 +110,14 @@ struct PaymentView: View {
     }
 
     private func loadData() {
-        if let fetched = DatabaseManager.shared.fetchUserFields(username: username) {
-            var filled = Array(repeating: 0, count: 12)
-            for i in 0..<min(fetched.count, 12) {
-                filled[i] = fetched[i]
-            }
-            fields = filled
-        }
         Task {
+            if let fetched = await DatabaseManager.shared.fetchUserFields(username: username) {
+                var filled = Array(repeating: 0, count: 12)
+                for i in 0..<min(fetched.count, 12) {
+                    filled[i] = fetched[i]
+                }
+                await MainActor.run { fields = filled }
+            }
             if let management = try? await DatabaseManager.shared.fetchManagementData().first {
                 await MainActor.run {
                     fee = management.fee

@@ -80,7 +80,9 @@ struct PayStatusView: View {
                         fields[monthIndex] = newValue
                         userFields[member.username] = fields
                         let intFields = fields.map { Int($0) ?? 0 }
-                        _ = DatabaseManager.shared.saveUserFields(username: member.username, fields: intFields)
+                        Task {
+                            _ = await DatabaseManager.shared.saveUserFields(username: member.username, fields: intFields)
+                        }
                     }
                 )
                 TextField("-", text: binding)
@@ -115,7 +117,7 @@ struct PayStatusView: View {
                 let filtered = fetched.filter { $0.guest == 1 }
                 var dict: [String: [String]] = [:]
                 for member in filtered {
-                    if let values = DatabaseManager.shared.fetchUserFields(username: member.username) {
+                    if let values = await DatabaseManager.shared.fetchUserFields(username: member.username) {
                         var strings = values.map { String($0) }
                         if strings.count < months.count {
                             strings += Array(repeating: "", count: months.count - strings.count)
