@@ -9,7 +9,7 @@ admin.initializeApp();
 setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
 
 async function resetToday(db) {
-  const snap = await db.collection('member').where('today', '!=', 0).get();
+  const snap = await db.collection('member').where('today', '>', 0).get();
   if (snap.empty) return;
 
   const docs = snap.docs;
