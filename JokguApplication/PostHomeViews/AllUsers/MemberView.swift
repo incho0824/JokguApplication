@@ -58,13 +58,35 @@ struct MemberView: View {
                 ForEach(members.indices, id: \.self) { index in
                     let member = members[index]
                     HStack(alignment: .top) {
-                        if let data = member.picture,
-                           let uiImage = UIImage(data: data) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .scaledToFill()
+                        if let urlString = member.pictureURL {
+                            if let url = URL(string: urlString),
+                               let scheme = url.scheme,
+                               (scheme == "http" || scheme == "https") {
+                                AsyncImage(url: url) { phase in
+                                    if let image = phase.image {
+                                        image.resizable().scaledToFill()
+                                    } else {
+                                        Image("default-profile")
+                                            .resizable()
+                                            .scaledToFill()
+                                    }
+                                }
                                 .frame(width: 60, height: 60)
                                 .clipShape(Circle())
+                            } else if let data = Data(base64Encoded: urlString),
+                                      let uiImage = UIImage(data: data) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 60, height: 60)
+                                    .clipShape(Circle())
+                            } else {
+                                Image("default-profile")
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 60, height: 60)
+                                    .clipShape(Circle())
+                            }
                         } else {
                             Image("default-profile")
                                 .resizable()
