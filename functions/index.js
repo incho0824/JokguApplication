@@ -1,30 +1,39 @@
-const functions = require('firebase-functions');
+// v2 imports
+const { setGlobalOptions } = require('firebase-functions/v2');
+const { onCall } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
+// optional defaults (region/memory/instances)
+setGlobalOptions({ region: 'us-central1', maxInstances: 10 });
+
 async function resetToday(db) {
-  const snapshot = await db.collection('member').where('today', '!=', 0).get();
-  if (snapshot.empty) {
-    return;
+  const snap = await db.collection('member').where('today', '!=', 0).get();
+  if (snap.empty) return;
+
+  const docs = snap.docs;
+  for (let i = 0; i < docs.length; i += 500) {
+    const batch = db.batch();
+    docs.slice(i, i + 500).forEach(doc => batch.update(doc.ref, { today: 0 }));
+    await batch.commit();
   }
-  const batch = db.batch();
-  snapshot.forEach(doc => {
-    batch.update(doc.ref, { today: 0 });
-  });
-  await batch.commit();
 }
 
-exports.scheduledDailyReset = functions.pubsub
-  .schedule('0 0 * * *')
-  .timeZone('Asia/Seoul')
-  .onRun(async () => {
+// Daily at midnight ET
+exports.scheduledDailyReset = onSchedule(
+  { schedule: '0 0 * * *', timeZone: 'America/New_York' },
+  async (event) => {
     await resetToday(admin.firestore());
     console.log('Today fields reset');
-  });
+  }
+);
 
-exports.adminResetToday = functions.https.onCall(async (data, context) => {
-  if (!context.auth || context.auth.token.admin !== true) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin privileges required.');
+// Callable admin reset (note: v2 uses a single request object)
+exports.adminResetToday = onCall(async (request) => {
+  const auth = request.auth;
+  if (!auth || auth.token?.admin !== true) {
+    throw new Error('permission-denied');
   }
   await resetToday(admin.firestore());
   return { status: 'ok' };
