@@ -36,7 +36,8 @@ struct MemberVerificationView: View {
                     Button("Verify") {
                         if let member = selectedMember {
                             isSendingCode = true
-                            let phone = member.phoneNumber.hasPrefix("+") ? member.phoneNumber : "+1" + member.phoneNumber
+                            let digits = member.phoneNumber.filter { $0.isNumber }
+                            let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
                             PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
                                 DispatchQueue.main.async {
                                     isSendingCode = false

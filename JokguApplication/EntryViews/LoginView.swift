@@ -196,7 +196,8 @@ struct LoginView: View {
                         .padding(.horizontal)
 
                     Button("Send Code") {
-                        let phone = recoveryPhoneNumber.hasPrefix("+") ? recoveryPhoneNumber : "+1" + recoveryPhoneNumber
+                        let digits = recoveryPhoneNumber.filter { $0.isNumber }
+                        let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
                         isSendingRecoveryCode = true
                         PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
                             DispatchQueue.main.async {
