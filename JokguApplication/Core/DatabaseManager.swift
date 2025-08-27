@@ -78,15 +78,8 @@ final class DatabaseManager: ObservableObject {
     }
 
     // MARK: - Helpers
-    private func generateSalt() -> String {
-        var rng = SystemRandomNumberGenerator()
-        let bytes = (0..<16).map { _ in UInt8.random(in: 0...255, using: &rng) }
-        return Data(bytes).base64EncodedString()
-    }
-
-    private func hashPassword(_ password: String, salt: String) -> String {
-        let data = Data((salt + password).utf8)
-        let hash = SHA256.hash(data: data)
+    private func hashPassword(_ password: String) -> String {
+        let hash = SHA256.hash(data: password.data(using: .utf8) ?? Data())
         return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 
@@ -218,12 +211,10 @@ final class DatabaseManager: ObservableObject {
             }
         }
 
-        let salt = generateSalt()
         var data: [String: Any] = [
             "id": newId,
             "username": upperUsername,
-            "passwordHash": hashPassword(password, salt: salt),
-            "salt": salt,
+            "password": hashPassword(password),
             "firstname": firstName,
             "lastname": lastName,
             "phonenumber": phoneNumber,
@@ -274,7 +265,8 @@ final class DatabaseManager: ObservableObject {
 
     func validateUser(username: String, password: String) async throws -> Int? {
         let key = username.uppercased()
-        if let ref = try await memberDocument(username: key) {
+        let hashed = hashPassword(password)
+        if let ref = memberUsernameRefCache[key] {
             let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
                 ref.getDocument { doc, error in
                     if let error = error {
@@ -286,14 +278,31 @@ final class DatabaseManager: ObservableObject {
                     }
                 }
             }
-            if let data = doc.data(),
-               let salt = data["salt"] as? String,
-               let stored = data["passwordHash"] as? String,
-               hashPassword(password, salt: salt) == stored {
-                return data["permit"] as? Int
+            if doc.data()?["password"] as? String == hashed {
+                return doc.data()?["permit"] as? Int
+            } else {
+                return nil
             }
         }
-        return nil
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Int?, Error>) in
+            db.collection("member")
+                .whereField("username", isEqualTo: key)
+                .whereField("password", isEqualTo: hashed)
+                .limit(to: 1)
+                .getDocuments { snapshot, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else if let doc = snapshot?.documents.first {
+                        if let id = doc.data()["id"] as? Int {
+                            self.memberRefCache[id] = doc.reference
+                            self.memberUsernameRefCache[key] = doc.reference
+                        }
+                        continuation.resume(returning: doc.data()["permit"] as? Int)
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                }
+        }
     }
 
     func fetchMembers() async throws -> [Member] {
@@ -425,24 +434,6 @@ final class DatabaseManager: ObservableObject {
         try await updateMember(id: id, fields: ["orderIndex": order])
     }
 
-    func updateOrders(_ updates: [(Int, Int)]) async throws {
-        let batch = db.batch()
-        for (id, order) in updates {
-            if let ref = try await memberDocument(id: id) {
-                batch.updateData(["orderIndex": order], forDocument: ref)
-            }
-        }
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            batch.commit { error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
-                }
-            }
-        }
-    }
-
     func deleteUser(id: Int) async throws {
         guard let ref = try await memberDocument(id: id) else { return }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -457,8 +448,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updateMemberCredentials(id: Int, username: String, password: String) async throws {
-        let salt = generateSalt()
-        try await updateMember(id: id, fields: ["username": username.uppercased(), "passwordHash": hashPassword(password, salt: salt), "salt": salt])
+        try await updateMember(id: id, fields: ["username": username.uppercased(), "password": hashPassword(password)])
     }
 
     func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
@@ -502,6 +492,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updatePassword(username: String, currentPassword: String, newPassword: String) async throws {
+        let currentHashed = hashPassword(currentPassword)
         guard let ref = try await memberDocument(username: username) else { return }
         let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
             ref.getDocument { doc, error in
@@ -514,15 +505,11 @@ final class DatabaseManager: ObservableObject {
                 }
             }
         }
-        guard let data = doc.data(),
-              let salt = data["salt"] as? String,
-              let stored = data["passwordHash"] as? String,
-              hashPassword(currentPassword, salt: salt) == stored else {
+        guard doc.data()?["password"] as? String == currentHashed else {
             throw NSError(domain: "InvalidPassword", code: 1)
         }
-        let newSalt = generateSalt()
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            ref.updateData(["passwordHash": hashPassword(newPassword, salt: newSalt), "salt": newSalt]) { error in
+            ref.updateData(["password": hashPassword(newPassword)]) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {

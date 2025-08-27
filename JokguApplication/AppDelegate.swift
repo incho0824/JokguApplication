@@ -1,16 +1,12 @@
 import UIKit
 import FirebaseCore
 import FirebaseMessaging
-import FirebaseAuth
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
-        if Auth.auth().currentUser == nil {
-            Auth.auth().signInAnonymously(completion: nil)
-        }
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .alert, .sound]) { _, _ in
             UNUserNotificationCenter.current().getNotificationSettings { settings in
