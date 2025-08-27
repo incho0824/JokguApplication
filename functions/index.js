@@ -20,21 +20,31 @@ async function resetToday(db) {
   }
 }
 
-// Daily at midnight ET
-exports.scheduledDailyReset = onSchedule(
-  { schedule: '0 0 * * *', timeZone: 'America/New_York' },
-  async (event) => {
-    await resetToday(admin.firestore());
-    console.log('Today fields reset');
-  }
-);
+  // Daily at midnight ET
+  exports.scheduledDailyReset = onSchedule(
+    { schedule: '0 0 * * *', timeZone: 'America/New_York' },
+    async (event) => {
+      try {
+        await resetToday(admin.firestore());
+        console.log('Today fields reset');
+      } catch (error) {
+        console.error('scheduledDailyReset failed:', error);
+        throw error;
+      }
+    }
+  );
 
 // Callable admin reset (note: v2 uses a single request object)
-exports.adminResetToday = onCall(async (request) => {
-  const auth = request.auth;
-  if (!auth || auth.token?.admin !== true) {
-    throw new Error('permission-denied');
-  }
-  await resetToday(admin.firestore());
-  return { status: 'ok' };
-});
+  exports.adminResetToday = onCall(async (request) => {
+    const auth = request.auth;
+    if (!auth || auth.token?.admin !== true) {
+      throw new Error('permission-denied');
+    }
+    try {
+      await resetToday(admin.firestore());
+      return { status: 'ok' };
+    } catch (error) {
+      console.error('adminResetToday failed:', error);
+      return { status: 'error', message: error.message };
+    }
+  });
