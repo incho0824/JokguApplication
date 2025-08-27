@@ -38,14 +38,18 @@ struct MemberVerificationView: View {
                             isSendingCode = true
                             let digits = member.phoneNumber.filter { $0.isNumber }
                             let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
-                            PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
-                                DispatchQueue.main.async {
-                                    isSendingCode = false
-                                    if let id = id {
+                            Task {
+                                do {
+                                    let id = try await PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil)
+                                    await MainActor.run {
                                         verificationID = id
                                         verifyingMember = member
-                                    } else if let error = error {
+                                        isSendingCode = false
+                                    }
+                                } catch {
+                                    await MainActor.run {
                                         errorMessage = error.localizedDescription
+                                        isSendingCode = false
                                     }
                                 }
                             }
