@@ -18,13 +18,35 @@ struct LineupView: View {
                     LazyVGrid(columns: columns, spacing: 20) {
                         ForEach(members) { member in
                             VStack {
-                                if let data = member.picture,
-                                   let uiImage = UIImage(data: data) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFill()
+                                if let urlString = member.pictureURL {
+                                    if let url = URL(string: urlString),
+                                       let scheme = url.scheme,
+                                       (scheme == "http" || scheme == "https") {
+                                        AsyncImage(url: url) { phase in
+                                            if let image = phase.image {
+                                                image.resizable().scaledToFill()
+                                            } else {
+                                                Image("default-profile")
+                                                    .resizable()
+                                                    .scaledToFill()
+                                            }
+                                        }
                                         .frame(width: 80, height: 80)
                                         .clipShape(Circle())
+                                    } else if let data = Data(base64Encoded: urlString),
+                                              let uiImage = UIImage(data: data) {
+                                        Image(uiImage: uiImage)
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 80, height: 80)
+                                            .clipShape(Circle())
+                                    } else {
+                                        Image("default-profile")
+                                            .resizable()
+                                            .scaledToFill()
+                                            .frame(width: 80, height: 80)
+                                            .clipShape(Circle())
+                                    }
                                 } else {
                                     Image("default-profile")
                                         .resizable()
