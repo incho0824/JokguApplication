@@ -44,7 +44,7 @@ class DatabaseManager {
     private init() {
         let firestore = Firestore.firestore()
         let settings = firestore.settings
-        settings.isPersistenceEnabled = true
+        settings.cacheSettings = PersistentCacheSettings()
         firestore.settings = settings
         self.db = firestore
     }
