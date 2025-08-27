@@ -375,12 +375,6 @@ class DatabaseManager {
         }
     }
 
-    func resetTodayForAll() {
-        db.collection("member").getDocuments { snapshot, _ in
-            snapshot?.documents.forEach { $0.reference.updateData(["today": 0]) }
-        }
-    }
-
     // MARK: - Management
     func fetchManagementData() async throws -> [KeyCode] {
         try await withCheckedThrowingContinuation { continuation in
