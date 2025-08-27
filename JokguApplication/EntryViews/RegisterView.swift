@@ -145,6 +145,7 @@ struct RegisterView: View {
                                         }
                                     }
                                 } catch {
+                                    print("Create user error:", error)
                                     await MainActor.run { showMessage("Unable to create user", color: .red) }
                                 }
                             }

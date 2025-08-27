@@ -10,5 +10,9 @@
         <array>
                 <string>venmo</string>
         </array>
+        <key>NSCameraUsageDescription</key>
+        <string>Camera access is required to take profile pictures.</string>
+        <key>NSPhotoLibraryUsageDescription</key>
+        <string>Photo library access is required to choose profile pictures.</string>
 </dict>
 </plist>
