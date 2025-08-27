@@ -127,16 +127,32 @@ class DatabaseManager {
     func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
         let upperUsername = username.uppercased()
         guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
-        let snapshot = try await withCheckedThrowingContinuation { continuation in
-            db.collection("member").getDocuments { snapshot, error in
+
+        // Obtain a new sequential ID using a transaction on a counter document
+        let newId = try await withCheckedThrowingContinuation { continuation in
+            let counterRef = db.collection("counters").document("member")
+            db.runTransaction({ transaction, errorPointer -> Any? in
+                let counterDoc: DocumentSnapshot
+                do {
+                    counterDoc = try transaction.getDocument(counterRef)
+                } catch let error as NSError {
+                    errorPointer?.pointee = error
+                    return nil
+                }
+                let nextId = (counterDoc.data()?["nextId"] as? Int) ?? 1
+                transaction.setData(["nextId": nextId + 1], forDocument: counterRef)
+                return nextId
+            }) { result, error in
                 if let error = error {
                     continuation.resume(throwing: error)
+                } else if let id = result as? Int {
+                    continuation.resume(returning: id)
                 } else {
-                    continuation.resume(returning: snapshot)
+                    continuation.resume(throwing: NSError(domain: "TransactionError", code: 0))
                 }
             }
         }
-        let newId = (snapshot?.documents.compactMap { $0.data()["id"] as? Int }.max() ?? 0) + 1
+
         var data: [String: Any] = [
             "id": newId,
             "username": upperUsername,
@@ -154,6 +170,7 @@ class DatabaseManager {
             "recovery": Int.random(in: 100000...999999)
         ]
         if let picture = picture { data["picture"] = pictureString(picture) }
+
         try await withCheckedThrowingContinuation { continuation in
             db.collection("member").addDocument(data: data) { error in
                 if let error = error {
