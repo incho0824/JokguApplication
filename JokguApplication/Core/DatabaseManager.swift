@@ -1,6 +1,5 @@
 import Foundation
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 import CryptoKit
 
 struct KeyCode: Identifiable {
