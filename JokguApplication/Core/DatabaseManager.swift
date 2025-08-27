@@ -498,20 +498,19 @@ final class DatabaseManager: ObservableObject {
         return success
     }
 
-    func fetchUserFields(username: String) -> [Int]? {
-        let sem = DispatchSemaphore(value: 0)
-        var values: [Int]? = nil
-        db.collection("user_fields").document(username.uppercased()).getDocument { doc, _ in
-            if let doc = doc, doc.exists {
+    func fetchUserFields(username: String) async -> [Int]? {
+        await withCheckedContinuation { continuation in
+            db.collection("user_fields").document(username.uppercased()).getDocument { doc, _ in
+                guard let doc = doc, doc.exists else {
+                    continuation.resume(returning: nil)
+                    return
+                }
                 var arr: [Int] = []
                 for i in 1...12 {
                     arr.append(doc.data()? ["field\(i)"] as? Int ?? 0)
                 }
-                values = arr
+                continuation.resume(returning: arr)
             }
-            sem.signal()
         }
-        sem.wait()
-        return values
     }
 }
