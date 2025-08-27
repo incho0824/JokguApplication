@@ -21,7 +21,7 @@ struct JokguApplicationApp: App {
                 .onAppear {
                     updateAppBadge()
                 }
-                .onChange(of: databaseManager.management?.id) { _, _ in
+                .onChange(of: databaseManager.management?.playwhen) { _, _ in
                     updateAppBadge()
                 }
         }
@@ -33,35 +33,59 @@ struct JokguApplicationApp: App {
     }
 
     private func updateAppBadge() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        let today = formatter.string(from: Date())
-        let badgeCount = (databaseManager.management?.playwhen.contains(today) == true) ? 1 : 0
+        let calendar = Calendar.current
+        let now = Date()
+        let weekdaySymbols = calendar.weekdaySymbols
+
+        var nextDate: Date? = nil
+        if let playwhen = databaseManager.management?.playwhen {
+            for day in playwhen {
+                if let index = weekdaySymbols.firstIndex(of: day) {
+                    var components = DateComponents()
+                    components.weekday = index + 1
+                    components.hour = 12
+                    components.minute = 0
+                    if let candidate = calendar.nextDate(after: now, matching: components, matchingPolicy: .nextTime) {
+                        if nextDate == nil || candidate < nextDate! {
+                            nextDate = candidate
+                        }
+                    }
+                }
+            }
+        }
+
+        let badgeCount = (nextDate != nil && calendar.isDateInToday(nextDate!)) ? 1 : 0
         UNUserNotificationCenter.current().setBadgeCount(badgeCount) { _ in }
-        scheduleNoonAlertIfNeeded(badgeCount: badgeCount)
+        scheduleNextGameAlert(for: nextDate)
     }
 
-    private func scheduleNoonAlertIfNeeded(badgeCount: Int) {
+    private func scheduleNextGameAlert(for date: Date?) {
         let center = UNUserNotificationCenter.current()
         let identifier = "noonAlert"
+        let defaults = UserDefaults.standard
+
+        guard let date = date else {
+            center.removePendingNotificationRequests(withIdentifiers: [identifier])
+            defaults.removeObject(forKey: "scheduledGameDate")
+            return
+        }
+
+        if let stored = defaults.object(forKey: "scheduledGameDate") as? Date,
+           Calendar.current.isDate(stored, equalTo: date, toGranularity: .minute) {
+            return
+        }
+
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
-
-        guard badgeCount == 1 else { return }
-
-        var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-        dateComponents.hour = 12
-        dateComponents.minute = 0
-
-        guard let triggerDate = Calendar.current.date(from: dateComponents),
-              triggerDate > Date() else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Reminder"
         content.body = "Game day today!"
         content.sound = .default
 
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         center.add(request, withCompletionHandler: nil)
+        defaults.set(date, forKey: "scheduledGameDate")
     }
 }
