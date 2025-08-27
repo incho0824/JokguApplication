@@ -18,13 +18,19 @@ struct LineupView: View {
                     LazyVGrid(columns: columns, spacing: 20) {
                         ForEach(members) { member in
                             VStack {
-                                if let data = member.picture,
-                                   let uiImage = UIImage(data: data) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 80, height: 80)
-                                        .clipShape(Circle())
+                                if let urlString = member.pictureURL,
+                                   let url = URL(string: urlString) {
+                                    AsyncImage(url: url) { phase in
+                                        if let image = phase.image {
+                                            image.resizable().scaledToFill()
+                                        } else {
+                                            Image("default-profile")
+                                                .resizable()
+                                                .scaledToFill()
+                                        }
+                                    }
+                                    .frame(width: 80, height: 80)
+                                    .clipShape(Circle())
                                 } else {
                                     Image("default-profile")
                                         .resizable()
