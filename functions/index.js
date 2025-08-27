@@ -3,7 +3,10 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 
 async function resetToday(db) {
-  const snapshot = await db.collection('member').get();
+  const snapshot = await db.collection('member').where('today', '!=', 0).get();
+  if (snapshot.empty) {
+    return;
+  }
   const batch = db.batch();
   snapshot.forEach(doc => {
     batch.update(doc.ref, { today: 0 });

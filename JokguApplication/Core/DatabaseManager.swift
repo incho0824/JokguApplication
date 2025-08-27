@@ -43,6 +43,7 @@ final class DatabaseManager: ObservableObject {
     private let db: Firestore
     @Published private(set) var management: KeyCode?
     private var managementListener: ListenerRegistration?
+    private var memberRefCache: [Int: DocumentReference] = [:]
 
     private init() {
         let firestore = Firestore.firestore()
@@ -125,12 +126,19 @@ final class DatabaseManager: ObservableObject {
     }
 
     private func memberDocument(id: Int) async throws -> DocumentReference? {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentReference?, Error>) in
+        if let cached = memberRefCache[id] {
+            return cached
+        }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentReference?, Error>) in
             db.collection("member").whereField("id", isEqualTo: id).limit(to: 1).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
-                    continuation.resume(returning: snapshot?.documents.first?.reference)
+                    let ref = snapshot?.documents.first?.reference
+                    if let ref = ref {
+                        self.memberRefCache[id] = ref
+                    }
+                    continuation.resume(returning: ref)
                 }
             }
         }
