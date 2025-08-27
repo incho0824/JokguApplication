@@ -1,5 +1,6 @@
 import Foundation
 import FirebaseFirestore
+import FirebaseStorage
 import CryptoKit
 import Combine
 
@@ -23,7 +24,7 @@ struct Member: Identifiable {
     var lastName: String
     var phoneNumber: String
     var dob: String
-    var picture: Data?
+    var pictureURL: String?
     var attendance: Int
     var permit: Int
     var guest: Int
@@ -82,16 +83,6 @@ final class DatabaseManager: ObservableObject {
         return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 
-    private func pictureString(_ data: Data?) -> String? {
-        guard let data = data else { return nil }
-        return data.base64EncodedString()
-    }
-
-    private func pictureData(_ string: String?) -> Data? {
-        guard let string = string else { return nil }
-        return Data(base64Encoded: string)
-    }
-
     private func memberFromDoc(_ doc: DocumentSnapshot) -> Member? {
         guard let data = doc.data() else { return nil }
         let id = data["id"] as? Int ?? 0
@@ -100,7 +91,7 @@ final class DatabaseManager: ObservableObject {
         let lastName = data["lastname"] as? String ?? ""
         let phoneNumber = data["phonenumber"] as? String ?? ""
         let dob = data["dob"] as? String ?? ""
-        let picture = pictureData(data["picture"] as? String)
+        let pictureURL = data["picture"] as? String
         let attendance = data["attendance"] as? Int ?? 0
         let permit = data["permit"] as? Int ?? 0
         let guest = data["guest"] as? Int ?? 0
@@ -110,7 +101,7 @@ final class DatabaseManager: ObservableObject {
         let recovery = data["recovery"] as? Int ?? 0
         memberRefCache[id] = doc.reference
         memberUsernameRefCache[username.uppercased()] = doc.reference
-        return Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, picture: picture, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery)
+        return Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, pictureURL: pictureURL, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery)
     }
 
     private func keyCodeFromDoc(_ doc: DocumentSnapshot) -> KeyCode? {
@@ -236,7 +227,27 @@ final class DatabaseManager: ObservableObject {
             "orderIndex": newId,
             "recovery": Int.random(in: 100000...999999)
         ]
-        if let picture = picture { data["picture"] = pictureString(picture) }
+        if let picture = picture {
+            let storageRef = Storage.storage().reference().child("profile_pictures/\(upperUsername).jpg")
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
+            let urlString: String = try await withCheckedThrowingContinuation { continuation in
+                storageRef.putData(picture, metadata: metadata) { _, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        storageRef.downloadURL { url, error in
+                            if let error = error {
+                                continuation.resume(throwing: error)
+                            } else {
+                                continuation.resume(returning: url?.absoluteString ?? "")
+                            }
+                        }
+                    }
+                }
+            }
+            data["picture"] = urlString
+        }
 
         let ref = db.collection("member").document()
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -447,7 +458,27 @@ final class DatabaseManager: ObservableObject {
             "phonenumber": phoneNumber,
             "dob": dob
         ]
-        if let picture = picture { fields["picture"] = pictureString(picture) }
+        if let picture = picture {
+            let storageRef = Storage.storage().reference().child("profile_pictures/\(username.uppercased()).jpg")
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
+            let urlString: String = try await withCheckedThrowingContinuation { continuation in
+                storageRef.putData(picture, metadata: metadata) { _, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        storageRef.downloadURL { url, error in
+                            if let error = error {
+                                continuation.resume(throwing: error)
+                            } else {
+                                continuation.resume(returning: url?.absoluteString ?? "")
+                            }
+                        }
+                    }
+                }
+            }
+            fields["picture"] = urlString
+        }
         guard let ref = try await memberDocument(username: username) else { return }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.updateData(fields) { error in

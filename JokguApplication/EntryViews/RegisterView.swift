@@ -31,7 +31,6 @@ struct RegisterView: View {
             _dob = State(initialValue: nil)
         }
         _username = State(initialValue: "")
-        _pictureData = State(initialValue: member?.picture)
     }
 
     var body: some View {
