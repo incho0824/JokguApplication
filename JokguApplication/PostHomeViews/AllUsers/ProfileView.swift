@@ -75,10 +75,19 @@ struct ProfileView: View {
 
                         if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || dob == nil {
                             showMessage("All fields are required", color: .red)
-                        } else if DatabaseManager.shared.updateUser(username: username, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData) {
-                            showMessage("Information updated", color: .green)
                         } else {
-                            showMessage("Unable to update information", color: .red)
+                            Task {
+                                do {
+                                    try await DatabaseManager.shared.updateUser(username: username, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData)
+                                    await MainActor.run {
+                                        showMessage("Information updated", color: .green)
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        showMessage("Unable to update information", color: .red)
+                                    }
+                                }
+                            }
                         }
                     }
                     .padding(.top)
@@ -104,13 +113,22 @@ struct ProfileView: View {
                             showMessage("Please confirm your new password", color: .red)
                         } else if newPassword != confirmPassword {
                             showMessage("Passwords do not match", color: .red)
-                        } else if DatabaseManager.shared.updatePassword(username: username, currentPassword: currentPassword, newPassword: newPassword) {
-                            showMessage("Password updated", color: .green)
-                            currentPassword = ""
-                            newPassword = ""
-                            confirmPassword = ""
                         } else {
-                            showMessage("Current password incorrect", color: .red)
+                            Task {
+                                do {
+                                    try await DatabaseManager.shared.updatePassword(username: username, currentPassword: currentPassword, newPassword: newPassword)
+                                    await MainActor.run {
+                                        showMessage("Password updated", color: .green)
+                                        currentPassword = ""
+                                        newPassword = ""
+                                        confirmPassword = ""
+                                    }
+                                } catch {
+                                    await MainActor.run {
+                                        showMessage("Current password incorrect", color: .red)
+                                    }
+                                }
+                            }
                         }
                     }
                     .padding(.top)
@@ -129,12 +147,16 @@ struct ProfileView: View {
                 }
             }
             .onAppear {
-                if let member = DatabaseManager.shared.fetchUser(username: username) {
-                    firstName = member.firstName
-                    lastName = member.lastName
-                    phoneNumber = member.phoneNumber
-                    dob = dateFormatter.date(from: member.dob)
-                    pictureData = member.picture
+                Task {
+                    if let member = try? await DatabaseManager.shared.fetchUser(username: username) {
+                        await MainActor.run {
+                            firstName = member.firstName
+                            lastName = member.lastName
+                            phoneNumber = member.phoneNumber
+                            dob = dateFormatter.date(from: member.dob)
+                            pictureData = member.picture
+                        }
+                    }
                 }
             }
         }

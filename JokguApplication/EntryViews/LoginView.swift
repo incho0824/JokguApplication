@@ -79,18 +79,33 @@ struct LoginView: View {
 
                 Button("Login") {
                     let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-                    if let permit = DatabaseManager.shared.validateUser(username: trimmedUser, password: password) {
-                        loggedInUser = trimmedUser
-                        isLoggedIn = true
-                        loginFailed = false
-                        userPermit = permit
-                        let defaults = UserDefaults.standard
-                        defaults.set(trimmedUser, forKey: "biometricUsername")
-                        defaults.set(permit, forKey: "biometricPermit")
-                    } else {
-                        loginFailed = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                            loginFailed = false
+                    Task {
+                        do {
+                            if let permit = try await DatabaseManager.shared.validateUser(username: trimmedUser, password: password) {
+                                await MainActor.run {
+                                    loggedInUser = trimmedUser
+                                    isLoggedIn = true
+                                    loginFailed = false
+                                    userPermit = permit
+                                    let defaults = UserDefaults.standard
+                                    defaults.set(trimmedUser, forKey: "biometricUsername")
+                                    defaults.set(permit, forKey: "biometricPermit")
+                                }
+                            } else {
+                                await MainActor.run {
+                                    loginFailed = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                        loginFailed = false
+                                    }
+                                }
+                            }
+                        } catch {
+                            await MainActor.run {
+                                loginFailed = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                    loginFailed = false
+                                }
+                            }
                         }
                     }
                 }
@@ -156,11 +171,15 @@ struct LoginView: View {
                     Spacer()
 
                     Button("Confirm") {
-                        let storedCode = DatabaseManager.shared.fetchKeyCode() ?? ""
-                        if keyCodeInput == storedCode {
-                            showKeyCodePrompt = false
-                            keyCodeInput = ""
-                            showMemberVerifyView = true
+                        Task {
+                            let storedCode = (try? await DatabaseManager.shared.fetchKeyCode()) ?? ""
+                            if keyCodeInput == storedCode {
+                                await MainActor.run {
+                                    showKeyCodePrompt = false
+                                    keyCodeInput = ""
+                                    showMemberVerifyView = true
+                                }
+                            }
                         }
                     }
                 }
@@ -189,11 +208,16 @@ struct LoginView: View {
                     Spacer()
 
                     Button("Confirm") {
-                        if let code = Int(recoveryCodeInput), code != 0,
-                           let member = DatabaseManager.shared.fetchMemberByRecovery(code: code) {
-                            showRecoveryPrompt = false
-                            recoveryCodeInput = ""
-                            recoveryMember = member
+                        if let code = Int(recoveryCodeInput), code != 0 {
+                            Task {
+                                if let member = try? await DatabaseManager.shared.fetchMemberByRecovery(code: code) {
+                                    await MainActor.run {
+                                        showRecoveryPrompt = false
+                                        recoveryCodeInput = ""
+                                        recoveryMember = member
+                                    }
+                                }
+                            }
                         }
                     }
                     .disabled(recoveryCodeInput.isEmpty)
@@ -211,8 +235,10 @@ struct LoginView: View {
     }
 
     private func loadManagement() {
-        if let item = DatabaseManager.shared.fetchManagementData().first {
-            management = item
+        Task {
+            if let item = try? await DatabaseManager.shared.fetchManagementData().first {
+                await MainActor.run { management = item }
+            }
         }
     }
 

@@ -131,8 +131,10 @@ struct HomeView: View {
     }
 
     private func loadManagement() {
-        if let item = DatabaseManager.shared.fetchManagementData().first {
-            management = item
+        Task {
+            if let item = try? await DatabaseManager.shared.fetchManagementData().first {
+                await MainActor.run { management = item }
+            }
         }
     }
 
@@ -149,13 +151,15 @@ struct HomeView: View {
     }
 
     private func checkTodayStatus() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        let todayName = formatter.string(from: Date())
-        if management.playwhen.contains(todayName),
-           let user = DatabaseManager.shared.fetchUser(username: username),
-           user.today == 0 {
-            showTodayPrompt = true
+        Task {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE"
+            let todayName = formatter.string(from: Date())
+            if management.playwhen.contains(todayName),
+               let user = try? await DatabaseManager.shared.fetchUser(username: username),
+               user.today == 0 {
+                await MainActor.run { showTodayPrompt = true }
+            }
         }
     }
 

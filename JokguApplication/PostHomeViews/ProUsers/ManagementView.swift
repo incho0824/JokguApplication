@@ -125,9 +125,18 @@ struct ManagementView: View {
     
 
     private func loadData() {
-        if let item = DatabaseManager.shared.fetchManagementData().first {
-            keyCode = item
-            originalKeyCode = item
+        Task {
+            do {
+                let items = try await DatabaseManager.shared.fetchManagementData()
+                if let item = items.first {
+                    await MainActor.run {
+                        keyCode = item
+                        originalKeyCode = item
+                    }
+                }
+            } catch {
+                // ignore errors for now
+            }
         }
     }
 }

@@ -117,9 +117,13 @@ struct PaymentView: View {
             }
             fields = filled
         }
-        if let management = DatabaseManager.shared.fetchManagementData().first {
-            fee = management.fee
-            venmoAccount = management.venmo
+        Task {
+            if let management = try? await DatabaseManager.shared.fetchManagementData().first {
+                await MainActor.run {
+                    fee = management.fee
+                    venmoAccount = management.venmo
+                }
+            }
         }
     }
 

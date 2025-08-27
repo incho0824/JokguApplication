@@ -48,10 +48,18 @@ struct MemberVerificationView: View {
             }
         }
         .onAppear {
-            members = DatabaseManager.shared.fetchUnsyncedMembers()
+            Task {
+                if let fetched = try? await DatabaseManager.shared.fetchUnsyncedMembers() {
+                    await MainActor.run { members = fetched }
+                }
+            }
         }
         .sheet(isPresented: $showRegister, onDismiss: {
-            members = DatabaseManager.shared.fetchUnsyncedMembers()
+            Task {
+                if let fetched = try? await DatabaseManager.shared.fetchUnsyncedMembers() {
+                    await MainActor.run { members = fetched }
+                }
+            }
         }) {
             if let member = selectedMember {
                 RegisterView(member: member) {

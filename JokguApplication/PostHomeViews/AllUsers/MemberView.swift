@@ -85,7 +85,7 @@ struct MemberView: View {
                                     get: { members[index].guest == 1 },
                                     set: { newValue in
                                         members[index].guest = newValue ? 1 : 0
-                                        _ = DatabaseManager.shared.updateGuest(id: member.id, guest: members[index].guest)
+                                        Task { try? await DatabaseManager.shared.updateGuest(id: member.id, guest: members[index].guest) }
                                     }
                                 ))
                                 .labelsHidden()
@@ -152,7 +152,7 @@ struct MemberView: View {
                         message: Text("Are you sure you want to delete \(selectedMember?.username ?? "this user")?"),
                         primaryButton: .destructive(Text("Delete")) {
                             if let member = selectedMember, member.permit != 2 {
-                                _ = DatabaseManager.shared.deleteUser(id: member.id)
+                                Task { try? await DatabaseManager.shared.deleteUser(id: member.id) }
                             }
                         },
                         secondaryButton: .cancel()
@@ -163,7 +163,7 @@ struct MemberView: View {
                         message: Text("Change permit to \(newPermit) for \(selectedMember?.username ?? "user")?"),
                         primaryButton: .default(Text("Update")) {
                             if let member = selectedMember, member.permit != 2 {
-                                _ = DatabaseManager.shared.updatePermit(id: member.id, permit: newPermit)
+                                Task { try? await DatabaseManager.shared.updatePermit(id: member.id, permit: newPermit) }
                             }
                         },
                         secondaryButton: .cancel()

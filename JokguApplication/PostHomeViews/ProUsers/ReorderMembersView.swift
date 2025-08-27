@@ -19,10 +19,15 @@ struct ReorderMembersView: View {
             }
         }
         .onAppear {
-            let allMembers = DatabaseManager.shared.fetchMembers()
-            members = allMembers.filter { $0.guest != 0 }
-            guestMembers = allMembers.filter { $0.guest == 0 }
-            updateOrderIndices()
+            Task {
+                if let allMembers = try? await DatabaseManager.shared.fetchMembers() {
+                    await MainActor.run {
+                        members = allMembers.filter { $0.guest != 0 }
+                        guestMembers = allMembers.filter { $0.guest == 0 }
+                        updateOrderIndices()
+                    }
+                }
+            }
         }
     }
 
@@ -32,11 +37,13 @@ struct ReorderMembersView: View {
     }
 
     private func updateOrderIndices() {
-        for (index, member) in members.enumerated() {
-            _ = DatabaseManager.shared.updateOrder(id: member.id, order: index)
-        }
-        for (offset, member) in guestMembers.enumerated() {
-            _ = DatabaseManager.shared.updateOrder(id: member.id, order: members.count + offset)
+        Task {
+            for (index, member) in members.enumerated() {
+                try? await DatabaseManager.shared.updateOrder(id: member.id, order: index)
+            }
+            for (offset, member) in guestMembers.enumerated() {
+                try? await DatabaseManager.shared.updateOrder(id: member.id, order: members.count + offset)
+            }
         }
     }
 }
