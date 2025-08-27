@@ -15,7 +15,6 @@ struct ProfileView: View {
     @State private var messageColor: Color = .red
     @State private var selectedPhoto: PhotosPickerItem? = nil
     @State private var pictureData: Data? = nil
-    @State private var pictureURL: String? = nil
 
     var body: some View {
         NavigationView {
@@ -29,19 +28,6 @@ struct ProfileView: View {
                                 .scaledToFill()
                                 .frame(width: 100, height: 100)
                                 .clipShape(Circle())
-                        } else if let pictureURL,
-                                  let url = URL(string: pictureURL) {
-                            AsyncImage(url: url) { phase in
-                                if let image = phase.image {
-                                    image.resizable().scaledToFill()
-                                } else {
-                                    Image("default-profile")
-                                        .resizable()
-                                        .scaledToFill()
-                                }
-                            }
-                            .frame(width: 100, height: 100)
-                            .clipShape(Circle())
                         } else {
                             Image("default-profile")
                                 .resizable()
@@ -53,8 +39,7 @@ struct ProfileView: View {
                     .onChange(of: selectedPhoto) { _, newItem in
                         Task {
                             if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                            pictureData = data
-                            pictureURL = nil
+                                pictureData = data
                             }
                         }
                     }
@@ -187,7 +172,7 @@ struct ProfileView: View {
                             lastName = member.lastName
                             phoneNumber = member.phoneNumber
                             dob = dateFormatter.date(from: member.dob)
-                            pictureURL = member.pictureURL
+                            pictureData = member.picture
                         }
                     }
                 }

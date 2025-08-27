@@ -58,19 +58,13 @@ struct MemberView: View {
                 ForEach(members.indices, id: \.self) { index in
                     let member = members[index]
                     HStack(alignment: .top) {
-                        if let urlString = member.pictureURL,
-                           let url = URL(string: urlString) {
-                            AsyncImage(url: url) { phase in
-                                if let image = phase.image {
-                                    image.resizable().scaledToFill()
-                                } else {
-                                    Image("default-profile")
-                                        .resizable()
-                                        .scaledToFill()
-                                }
-                            }
-                            .frame(width: 60, height: 60)
-                            .clipShape(Circle())
+                        if let data = member.picture,
+                           let uiImage = UIImage(data: data) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 60, height: 60)
+                                .clipShape(Circle())
                         } else {
                             Image("default-profile")
                                 .resizable()
