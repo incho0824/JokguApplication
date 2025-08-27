@@ -34,7 +34,9 @@ public class ExampleConnector {
   }
 
   public func useEmulator(host: String = DataConnect.EmulatorDefaults.host, port: Int = DataConnect.EmulatorDefaults.port) {
+#if DEBUG
     self.dataConnect.useEmulator(host: host, port: port)
+#endif
   }
 
   // MARK: Operations

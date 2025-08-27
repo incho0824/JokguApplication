@@ -26,7 +26,9 @@ By default, the connector will connect to the production service.
 To connect to the emulator, you can use the following code, which can be called from the `init` function of your SwiftUI app
 
 ```
+#if DEBUG
 connector.useEmulator()
+#endif
 ```
 
 # Queries
