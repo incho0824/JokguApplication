@@ -7,24 +7,20 @@
 
 import SwiftUI
 import UserNotifications
-import FirebaseCore
 
 @main
 struct JokguApplicationApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var databaseManager: DatabaseManager
-
-    init() {
-        FirebaseApp.configure()
-        _databaseManager = StateObject(wrappedValue: DatabaseManager.shared)
-        UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .alert, .sound]) { _, _ in }
-        updateAppBadge()
-    }
+    @StateObject private var databaseManager = DatabaseManager.shared
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(databaseManager)
+                .onAppear {
+                    updateAppBadge()
+                }
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
