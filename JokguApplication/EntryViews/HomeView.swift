@@ -38,13 +38,14 @@ struct HomeView: View {
                         .padding(.top, 40)
                         .padding(.horizontal)
 
-                    Text(databaseManager.management?.notification ?? "")
-                        .multilineTextAlignment(.center)
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.black.opacity(0.3))
-                        .cornerRadius(12)
-                        .padding(.horizontal)
+                    if let notice = databaseManager.management?.notification {
+                        Text(formatNotification(notice))
+                            .multilineTextAlignment(.center)
+                            .padding()
+                            .background(Color.black.opacity(0.3))
+                            .cornerRadius(12)
+                            .padding(.horizontal)
+                    }
 
                     Button {
                         showLineup = true
@@ -129,6 +130,41 @@ struct HomeView: View {
             checkTodayStatus()
         }
         .todayPrompt(isPresented: $showTodayPrompt, username: username)
+    }
+
+    private func formatNotification(_ text: String) -> AttributedString {
+        var result = AttributedString()
+        var remaining = text[...]
+        while let start = remaining.range(of: "**") {
+            let before = remaining[..<start.lowerBound]
+            var normal = AttributedString(String(before))
+            normal.foregroundColor = .white
+            result += normal
+            let afterStart = remaining[start.upperBound...]
+            guard let end = afterStart.range(of: "**") else {
+                var rest = AttributedString(String(afterStart))
+                rest.foregroundColor = .white
+                result += rest
+                return result
+            }
+            let address = String(afterStart[..<end.lowerBound])
+            if let encoded = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+               let url = URL(string: "http://maps.apple.com/?q=\(encoded)") {
+                var link = AttributedString(address)
+                link.link = url
+                link.foregroundColor = .blue
+                result += link
+            } else {
+                var textPart = AttributedString(address)
+                textPart.foregroundColor = .white
+                result += textPart
+            }
+            remaining = afterStart[end.upperBound...]
+        }
+        var tail = AttributedString(String(remaining))
+        tail.foregroundColor = .white
+        result += tail
+        return result
     }
 
     private func checkTodayStatus() {

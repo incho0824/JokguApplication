@@ -125,7 +125,11 @@ struct ProfileView: View {
                                     }
                                 } catch {
                                     await MainActor.run {
-                                        showMessage("Current password incorrect", color: .red)
+                                        if (error as NSError).domain == "InvalidPassword" {
+                                            showMessage("Current password incorrect", color: .red)
+                                        } else {
+                                            showMessage("Unable to update password", color: .red)
+                                        }
                                     }
                                 }
                             }
