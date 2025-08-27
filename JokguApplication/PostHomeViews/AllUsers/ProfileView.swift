@@ -95,7 +95,12 @@ struct ProfileView: View {
                     Divider().padding(.vertical)
 
                     SecureField("Current Password", text: $currentPassword)
-                        .textContentType(.password)
+                        // Use a content type that prevents iOS from offering
+                        // strong password suggestions when editing the current
+                        // password field. Without this, the system can overlay
+                        // a "strong password" suggestion view that blocks user
+                        // input.
+                        .textContentType(.oneTimeCode)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
