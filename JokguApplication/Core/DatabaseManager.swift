@@ -276,6 +276,20 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
+    func fetchMemberByPhoneNumber(phoneNumber: String) async throws -> Member? {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Member?, Error>) in
+            db.collection("member").whereField("phonenumber", isEqualTo: phoneNumber).limit(to: 1).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let doc = snapshot?.documents.first {
+                    continuation.resume(returning: self.memberFromDoc(doc))
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
     func fetchUnsyncedMembers() async throws -> [Member] {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Member], Error>) in
             db.collection("member").whereField("syncd", isEqualTo: 0).getDocuments { snapshot, error in
