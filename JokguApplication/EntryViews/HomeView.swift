@@ -8,12 +8,12 @@ struct HomeView: View {
     @Binding var userPermit: Int
     @Binding var username: String
     @Environment(\.scenePhase) private var scenePhase
+    @EnvironmentObject private var databaseManager: DatabaseManager
     @State private var showManagement = false
     @State private var showMembers = false
     @State private var showLineup = false
     @State private var showProfile = false
     @State private var showPayment = false
-    @State private var management = KeyCode(id: 0, code: "", address: "", welcome: "", youtube: nil, kakao: nil, notification: "", playwhen: [], fee: 0, venmo: "")
     @State private var showTodayPrompt = false
 
     var body: some View {
@@ -38,7 +38,7 @@ struct HomeView: View {
                         .padding(.top, 40)
                         .padding(.horizontal)
 
-                    Text(management.notification)
+                    Text(databaseManager.management?.notification ?? "")
                         .multilineTextAlignment(.center)
                         .foregroundColor(.white)
                         .padding()
@@ -97,7 +97,7 @@ struct HomeView: View {
                             Label("Management", systemImage: "gearshape")
                         }
                         .buttonStyle(HomeButtonStyle())
-                        .sheet(isPresented: $showManagement, onDismiss: loadManagement) {
+                        .sheet(isPresented: $showManagement) {
                             ManagementView(userPermit: userPermit)
                         }
                         .padding(.horizontal)
@@ -118,7 +118,6 @@ struct HomeView: View {
         }
         .onAppear {
             UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
-            loadManagement()
             checkTodayStatus()
         }
         .onChange(of: scenePhase) { _, newPhase in
@@ -126,15 +125,10 @@ struct HomeView: View {
                 UNUserNotificationCenter.current().setBadgeCount(0) { _ in }
             }
         }
-        .todayPrompt(isPresented: $showTodayPrompt, username: username)
-    }
-
-    private func loadManagement() {
-        Task {
-            if let item = try? await DatabaseManager.shared.fetchManagementData().first {
-                await MainActor.run { management = item }
-            }
+        .onChange(of: databaseManager.management?.id) { _, _ in
+            checkTodayStatus()
         }
+        .todayPrompt(isPresented: $showTodayPrompt, username: username)
     }
 
     private func checkTodayStatus() {
@@ -142,7 +136,8 @@ struct HomeView: View {
             let formatter = DateFormatter()
             formatter.dateFormat = "EEEE"
             let todayName = formatter.string(from: Date())
-            if management.playwhen.contains(todayName),
+            if let management = databaseManager.management,
+               management.playwhen.contains(todayName),
                let user = try? await DatabaseManager.shared.fetchUser(username: username),
                user.today == 0 {
                 await MainActor.run { showTodayPrompt = true }
@@ -167,4 +162,5 @@ private struct HomeButtonStyle: ButtonStyle {
 
 #Preview {
     HomeView(isLoggedIn: .constant(true), userPermit: .constant(1), username: .constant("USER"))
+        .environmentObject(DatabaseManager.shared)
 }
