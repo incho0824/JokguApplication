@@ -132,14 +132,23 @@ struct RegisterView: View {
                             showMessage("Passwords do not match", color: .red)
                         } else if !trimmedUser.allSatisfy({ $0.isLetter || $0.isNumber }) {
                             showMessage("Username must contain letters and numbers only", color: .red)
-                        } else if DatabaseManager.shared.userExists(trimmedUser) {
-                            showMessage("Username already exists", color: .red)
-                        } else if DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData()) {
-                            showMessage("User created", color: .green)
-                            onComplete?()
-                            dismiss()
                         } else {
-                            showMessage("Unable to create user", color: .red)
+                            Task {
+                                do {
+                                    if try await DatabaseManager.shared.userExists(trimmedUser) {
+                                        await MainActor.run { showMessage("Username already exists", color: .red) }
+                                    } else {
+                                        try await DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData())
+                                        await MainActor.run {
+                                            showMessage("User created", color: .green)
+                                            onComplete?()
+                                            dismiss()
+                                        }
+                                    }
+                                } catch {
+                                    await MainActor.run { showMessage("Unable to create user", color: .red) }
+                                }
+                            }
                         }
                     } else if let member = member {
                         if trimmedUser.isEmpty || password.isEmpty {
@@ -148,14 +157,23 @@ struct RegisterView: View {
                             showMessage("Please confirm your password", color: .red)
                         } else if password != confirmPassword {
                             showMessage("Passwords do not match", color: .red)
-                        } else if DatabaseManager.shared.userExists(trimmedUser) && trimmedUser != member.username.uppercased() {
-                            showMessage("Username already exists", color: .red)
-                        } else if DatabaseManager.shared.updateMemberCredentials(id: member.id, username: trimmedUser, password: password) {
-                            showMessage("User updated", color: .green)
-                            onComplete?()
-                            dismiss()
                         } else {
-                            showMessage("Unable to update user", color: .red)
+                            Task {
+                                do {
+                                    if try await DatabaseManager.shared.userExists(trimmedUser) && trimmedUser != member.username.uppercased() {
+                                        await MainActor.run { showMessage("Username already exists", color: .red) }
+                                    } else {
+                                        try await DatabaseManager.shared.updateMemberCredentials(id: member.id, username: trimmedUser, password: password)
+                                        await MainActor.run {
+                                            showMessage("User updated", color: .green)
+                                            onComplete?()
+                                            dismiss()
+                                        }
+                                    }
+                                } catch {
+                                    await MainActor.run { showMessage("Unable to update user", color: .red) }
+                                }
+                            }
                         }
                     }
                 }

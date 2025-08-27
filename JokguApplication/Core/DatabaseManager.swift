@@ -99,85 +99,101 @@ class DatabaseManager {
         return KeyCode(id: id, code: code, address: address, welcome: welcome, youtube: youtubeString != nil ? URL(string: youtubeString!) : nil, kakao: kakaoString != nil ? URL(string: kakaoString!) : nil, notification: notification, playwhen: playwhen, fee: fee, venmo: venmo)
     }
 
-    private func memberDocument(id: Int, completion: @escaping (DocumentReference?) -> Void) {
-        db.collection("member").whereField("id", isEqualTo: id).limit(to: 1).getDocuments { snapshot, _ in
-            completion(snapshot?.documents.first?.reference)
+    private func memberDocument(id: Int) async throws -> DocumentReference? {
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").whereField("id", isEqualTo: id).limit(to: 1).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: snapshot?.documents.first?.reference)
+                }
+            }
         }
     }
 
     // MARK: - Authentication & Users
-    func userExists(_ username: String) -> Bool {
-        let sem = DispatchSemaphore(value: 0)
-        var exists = false
-        db.collection("member").whereField("username", isEqualTo: username.uppercased()).getDocuments { snapshot, _ in
-            exists = snapshot?.documents.isEmpty == false
-            sem.signal()
-        }
-        sem.wait()
-        return exists
-    }
-
-    func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) -> Bool {
-        let upperUsername = username.uppercased()
-        guard !userExists(upperUsername) else { return false }
-        let sem = DispatchSemaphore(value: 0)
-        var success = false
-        db.collection("member").getDocuments { snapshot, _ in
-            let newId = (snapshot?.documents.compactMap { $0.data()["id"] as? Int }.max() ?? 0) + 1
-            var data: [String: Any] = [
-                "id": newId,
-                "username": upperUsername,
-                "password": self.hashPassword(password),
-                "firstname": firstName,
-                "lastname": lastName,
-                "phonenumber": phoneNumber,
-                "dob": dob,
-                "attendance": 0,
-                "permit": 0,
-                "guest": 0,
-                "today": 0,
-                "syncd": 1,
-                "orderIndex": newId,
-                "recovery": Int.random(in: 100000...999999)
-            ]
-            if let picture = picture { data["picture"] = self.pictureString(picture) }
-            self.db.collection("member").addDocument(data: data) { error in
-                success = error == nil
-                sem.signal()
-            }
-        }
-        sem.wait()
-        return success
-    }
-
-    func validateUser(username: String, password: String) -> Int? {
-        let sem = DispatchSemaphore(value: 0)
-        var permit: Int?
-        db.collection("member")
-            .whereField("username", isEqualTo: username.uppercased())
-            .whereField("password", isEqualTo: hashPassword(password))
-            .limit(to: 1)
-            .getDocuments { snapshot, _ in
-                if let doc = snapshot?.documents.first {
-                    permit = doc.data()["permit"] as? Int
+    func userExists(_ username: String) async throws -> Bool {
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").whereField("username", isEqualTo: username.uppercased()).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: snapshot?.documents.isEmpty == false)
                 }
-                sem.signal()
             }
-        sem.wait()
-        return permit
+        }
     }
 
-    func fetchMembers() -> [Member] {
-        let sem = DispatchSemaphore(value: 0)
-        var items: [Member] = []
-        db.collection("member").order(by: "orderIndex").getDocuments { snapshot, _ in
-            if let docs = snapshot?.documents {
-                items = docs.compactMap { self.memberFromDoc($0) }
+    func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
+        let upperUsername = username.uppercased()
+        guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
+        let snapshot = try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: snapshot)
+                }
             }
-            sem.signal()
         }
-        sem.wait()
-        return items
+        let newId = (snapshot?.documents.compactMap { $0.data()["id"] as? Int }.max() ?? 0) + 1
+        var data: [String: Any] = [
+            "id": newId,
+            "username": upperUsername,
+            "password": hashPassword(password),
+            "firstname": firstName,
+            "lastname": lastName,
+            "phonenumber": phoneNumber,
+            "dob": dob,
+            "attendance": 0,
+            "permit": 0,
+            "guest": 0,
+            "today": 0,
+            "syncd": 1,
+            "orderIndex": newId,
+            "recovery": Int.random(in: 100000...999999)
+        ]
+        if let picture = picture { data["picture"] = pictureString(picture) }
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").addDocument(data: data) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
+    }
+
+    func validateUser(username: String, password: String) async throws -> Int? {
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("member")
+                .whereField("username", isEqualTo: username.uppercased())
+                .whereField("password", isEqualTo: hashPassword(password))
+                .limit(to: 1)
+                .getDocuments { snapshot, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else if let doc = snapshot?.documents.first {
+                        continuation.resume(returning: doc.data()["permit"] as? Int)
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                }
+        }
+    }
+
+    func fetchMembers() async throws -> [Member] {
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").order(by: "orderIndex").getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    let items = snapshot?.documents.compactMap { self.memberFromDoc($0) } ?? []
+                    continuation.resume(returning: items)
+                }
+            }
+        }
     }
 
     func listenMembers(completion: @escaping ([Member]) -> Void) -> ListenerRegistration {
@@ -187,100 +203,104 @@ class DatabaseManager {
         }
     }
 
-    func fetchTodayMembers() -> [Member] {
-        let sem = DispatchSemaphore(value: 0)
-        var items: [Member] = []
-        db.collection("member").whereField("today", isEqualTo: 1).getDocuments { snapshot, _ in
-            if let docs = snapshot?.documents {
-                items = docs.compactMap { self.memberFromDoc($0) }
+    func fetchTodayMembers() async throws -> [Member] {
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").whereField("today", isEqualTo: 1).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    let items = snapshot?.documents.compactMap { self.memberFromDoc($0) } ?? []
+                    continuation.resume(returning: items)
+                }
             }
-            sem.signal()
         }
-        sem.wait()
-        return items
     }
 
-    func fetchUser(username: String) -> Member? {
-        let sem = DispatchSemaphore(value: 0)
-        var member: Member?
-        db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, _ in
-            if let doc = snapshot?.documents.first { member = self.memberFromDoc(doc) }
-            sem.signal()
-        }
-        sem.wait()
-        return member
-    }
-
-    func fetchMemberByRecovery(code: Int) -> Member? {
-        let sem = DispatchSemaphore(value: 0)
-        var member: Member?
-        db.collection("member").whereField("recovery", isEqualTo: code).limit(to: 1).getDocuments { snapshot, _ in
-            if let doc = snapshot?.documents.first { member = self.memberFromDoc(doc) }
-            sem.signal()
-        }
-        sem.wait()
-        return member
-    }
-
-    func fetchUnsyncedMembers() -> [Member] {
-        let sem = DispatchSemaphore(value: 0)
-        var items: [Member] = []
-        db.collection("member").whereField("syncd", isEqualTo: 0).getDocuments { snapshot, _ in
-            if let docs = snapshot?.documents {
-                items = docs.compactMap { self.memberFromDoc($0) }
+    func fetchUser(username: String) async throws -> Member? {
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let doc = snapshot?.documents.first {
+                    continuation.resume(returning: self.memberFromDoc(doc))
+                } else {
+                    continuation.resume(returning: nil)
+                }
             }
-            sem.signal()
         }
-        sem.wait()
-        return items
+    }
+
+    func fetchMemberByRecovery(code: Int) async throws -> Member? {
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").whereField("recovery", isEqualTo: code).limit(to: 1).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let doc = snapshot?.documents.first {
+                    continuation.resume(returning: self.memberFromDoc(doc))
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
+    func fetchUnsyncedMembers() async throws -> [Member] {
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").whereField("syncd", isEqualTo: 0).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    let items = snapshot?.documents.compactMap { self.memberFromDoc($0) } ?? []
+                    continuation.resume(returning: items)
+                }
+            }
+        }
     }
 
     // MARK: - Updates
-    private func updateMember(id: Int, fields: [String: Any]) -> Bool {
-        let sem = DispatchSemaphore(value: 0)
-        var success = false
-        memberDocument(id: id) { ref in
-            ref?.updateData(fields) { error in
-                success = error == nil
-                sem.signal()
+    private func updateMember(id: Int, fields: [String: Any]) async throws {
+        guard let ref = try await memberDocument(id: id) else { return }
+        try await withCheckedThrowingContinuation { continuation in
+            ref.updateData(fields) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
             }
         }
-        sem.wait()
-        return success
     }
 
-    func updateGuest(id: Int, guest: Int) -> Bool {
-        updateMember(id: id, fields: ["guest": guest])
+    func updateGuest(id: Int, guest: Int) async throws {
+        try await updateMember(id: id, fields: ["guest": guest])
     }
 
-    func updatePermit(id: Int, permit: Int) -> Bool {
-        updateMember(id: id, fields: ["permit": permit])
+    func updatePermit(id: Int, permit: Int) async throws {
+        try await updateMember(id: id, fields: ["permit": permit])
     }
 
-    func updateOrder(id: Int, order: Int) -> Bool {
-        updateMember(id: id, fields: ["orderIndex": order])
+    func updateOrder(id: Int, order: Int) async throws {
+        try await updateMember(id: id, fields: ["orderIndex": order])
     }
 
-    func deleteUser(id: Int) -> Bool {
-        let sem = DispatchSemaphore(value: 0)
-        var success = false
-        memberDocument(id: id) { ref in
-            ref?.delete { error in
-                success = error == nil
-                sem.signal()
+    func deleteUser(id: Int) async throws {
+        guard let ref = try await memberDocument(id: id) else { return }
+        try await withCheckedThrowingContinuation { continuation in
+            ref.delete { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
             }
         }
-        sem.wait()
-        return success
     }
 
-    func updateMemberCredentials(id: Int, username: String, password: String) -> Bool {
-        updateMember(id: id, fields: ["username": username.uppercased(), "password": hashPassword(password)])
+    func updateMemberCredentials(id: Int, username: String, password: String) async throws {
+        try await updateMember(id: id, fields: ["username": username.uppercased(), "password": hashPassword(password)])
     }
 
-    func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) -> Bool {
-        let sem = DispatchSemaphore(value: 0)
-        var success = false
+    func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
         var fields: [String: Any] = [
             "firstname": firstName,
             "lastname": lastName,
@@ -288,57 +308,71 @@ class DatabaseManager {
             "dob": dob
         ]
         if let picture = picture { fields["picture"] = pictureString(picture) }
-        db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, _ in
-            if let doc = snapshot?.documents.first {
-                doc.reference.updateData(fields) { error in
-                    success = error == nil
-                    sem.signal()
-                }
-            } else {
-                sem.signal()
-            }
-        }
-        sem.wait()
-        return success
-    }
-
-    func updatePassword(username: String, currentPassword: String, newPassword: String) -> Bool {
-        let sem = DispatchSemaphore(value: 0)
-        var success = false
-        let currentHashed = hashPassword(currentPassword)
-        db.collection("member")
-            .whereField("username", isEqualTo: username.uppercased())
-            .whereField("password", isEqualTo: currentHashed)
-            .limit(to: 1)
-            .getDocuments { snapshot, _ in
-                if let doc = snapshot?.documents.first {
-                    doc.reference.updateData(["password": self.hashPassword(newPassword)]) { error in
-                        success = error == nil
-                        sem.signal()
-                    }
+        let doc = try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
                 } else {
-                    sem.signal()
+                    continuation.resume(returning: snapshot?.documents.first)
                 }
-            }
-        sem.wait()
-        return success
-    }
-
-    func updateToday(username: String, value: Int) -> Bool {
-        let sem = DispatchSemaphore(value: 0)
-        var success = false
-        db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, _ in
-            if let doc = snapshot?.documents.first {
-                doc.reference.updateData(["today": value]) { error in
-                    success = error == nil
-                    sem.signal()
-                }
-            } else {
-                sem.signal()
             }
         }
-        sem.wait()
-        return success
+        try await withCheckedThrowingContinuation { continuation in
+            doc?.reference.updateData(fields) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
+    }
+
+    func updatePassword(username: String, currentPassword: String, newPassword: String) async throws {
+        let currentHashed = hashPassword(currentPassword)
+        let doc = try await withCheckedThrowingContinuation { continuation in
+            db.collection("member")
+                .whereField("username", isEqualTo: username.uppercased())
+                .whereField("password", isEqualTo: currentHashed)
+                .limit(to: 1)
+                .getDocuments { snapshot, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: snapshot?.documents.first)
+                    }
+                }
+        }
+        try await withCheckedThrowingContinuation { continuation in
+            doc?.reference.updateData(["password": hashPassword(newPassword)]) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
+    }
+
+    func updateToday(username: String, value: Int) async throws {
+        let doc = try await withCheckedThrowingContinuation { continuation in
+            db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: snapshot?.documents.first)
+                }
+            }
+        }
+        try await withCheckedThrowingContinuation { continuation in
+            doc?.reference.updateData(["today": value]) { error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
     }
 
     func resetTodayForAll() {
@@ -348,21 +382,22 @@ class DatabaseManager {
     }
 
     // MARK: - Management
-    func fetchManagementData() -> [KeyCode] {
-        let sem = DispatchSemaphore(value: 0)
-        var items: [KeyCode] = []
-        db.collection("management").getDocuments { snapshot, _ in
-            if let docs = snapshot?.documents {
-                items = docs.compactMap { self.keyCodeFromDoc($0) }
+    func fetchManagementData() async throws -> [KeyCode] {
+        try await withCheckedThrowingContinuation { continuation in
+            db.collection("management").getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    let items = snapshot?.documents.compactMap { self.keyCodeFromDoc($0) } ?? []
+                    continuation.resume(returning: items)
+                }
             }
-            sem.signal()
         }
-        sem.wait()
-        return items
     }
 
-    func fetchKeyCode() -> String? {
-        fetchManagementData().first?.code
+    func fetchKeyCode() async throws -> String? {
+        let items = try await fetchManagementData()
+        return items.first?.code
     }
 
     func updateManagement(id: Int, code: String, address: String, welcome: String, youtube: URL?, kakao: URL?, notification: String, playwhen: [String], fee: Int, venmo: String) {

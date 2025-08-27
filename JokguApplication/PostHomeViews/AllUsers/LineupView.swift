@@ -61,11 +61,19 @@ struct LineupView: View {
                 }
             }
             .onAppear {
-                members = DatabaseManager.shared.fetchTodayMembers()
-                checkPlayDay()
+                Task {
+                    if let fetched = try? await DatabaseManager.shared.fetchTodayMembers() {
+                        await MainActor.run { members = fetched }
+                    }
+                    checkPlayDay()
+                }
             }
             .todayPrompt(isPresented: $showTodayPrompt, username: username) {
-                members = DatabaseManager.shared.fetchTodayMembers()
+                Task {
+                    if let fetched = try? await DatabaseManager.shared.fetchTodayMembers() {
+                        await MainActor.run { members = fetched }
+                    }
+                }
             }
         }
     }
@@ -73,13 +81,18 @@ struct LineupView: View {
 
 private extension LineupView {
     func checkPlayDay() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE"
-        let today = formatter.string(from: Date())
-        if let management = DatabaseManager.shared.fetchManagementData().first {
-            isPlayDay = management.playwhen.contains(today)
-        } else {
-            isPlayDay = false
+        Task {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEEE"
+            let today = formatter.string(from: Date())
+            do {
+                let managements = try await DatabaseManager.shared.fetchManagementData()
+                await MainActor.run {
+                    isPlayDay = managements.first?.playwhen.contains(today) ?? false
+                }
+            } catch {
+                await MainActor.run { isPlayDay = false }
+            }
         }
     }
 }

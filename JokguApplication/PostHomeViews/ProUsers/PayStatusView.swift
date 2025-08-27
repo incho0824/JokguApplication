@@ -109,22 +109,33 @@ struct PayStatusView: View {
     }
 
     private func loadData() {
-        members = DatabaseManager.shared.fetchMembers().filter { $0.guest == 1 }
-        var dict: [String: [String]] = [:]
-        for member in members {
-            if let values = DatabaseManager.shared.fetchUserFields(username: member.username) {
-                var strings = values.map { String($0) }
-                if strings.count < months.count {
-                    strings += Array(repeating: "", count: months.count - strings.count)
+        Task {
+            do {
+                let fetched = try await DatabaseManager.shared.fetchMembers()
+                let filtered = fetched.filter { $0.guest == 1 }
+                var dict: [String: [String]] = [:]
+                for member in filtered {
+                    if let values = DatabaseManager.shared.fetchUserFields(username: member.username) {
+                        var strings = values.map { String($0) }
+                        if strings.count < months.count {
+                            strings += Array(repeating: "", count: months.count - strings.count)
+                        }
+                        dict[member.username] = strings
+                    } else {
+                        dict[member.username] = Array(repeating: "", count: months.count)
+                    }
                 }
-                dict[member.username] = strings
-            } else {
-                dict[member.username] = Array(repeating: "", count: months.count)
+                let managements = try await DatabaseManager.shared.fetchManagementData()
+                await MainActor.run {
+                    members = filtered
+                    userFields = dict
+                    if let management = managements.first {
+                        fee = management.fee
+                    }
+                }
+            } catch {
+                // ignore errors
             }
-        }
-        userFields = dict
-        if let management = DatabaseManager.shared.fetchManagementData().first {
-            fee = management.fee
         }
     }
 
