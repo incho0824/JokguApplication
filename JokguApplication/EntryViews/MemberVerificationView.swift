@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct MemberVerificationView: View {
     @Environment(\.dismiss) var dismiss
@@ -7,6 +8,9 @@ struct MemberVerificationView: View {
     @State private var showRegister = false
     @State private var verifyingMember: Member? = nil
     @State private var inputCode: String = ""
+    @State private var verificationID: String? = nil
+    @State private var isSendingCode = false
+    @State private var errorMessage: String? = nil
 
     var body: some View {
         NavigationView {
@@ -31,10 +35,22 @@ struct MemberVerificationView: View {
                     Spacer()
                     Button("Verify") {
                         if let member = selectedMember {
-                            verifyingMember = member
+                            isSendingCode = true
+                            let phone = member.phoneNumber.hasPrefix("+") ? member.phoneNumber : "+1" + member.phoneNumber
+                            PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
+                                DispatchQueue.main.async {
+                                    isSendingCode = false
+                                    if let id = id {
+                                        verificationID = id
+                                        verifyingMember = member
+                                    } else if let error = error {
+                                        errorMessage = error.localizedDescription
+                                    }
+                                }
+                            }
                         }
                     }
-                    .disabled(selectedMember == nil)
+                    .disabled(selectedMember == nil || isSendingCode)
                 }
                 .padding()
             }
@@ -75,27 +91,30 @@ struct MemberVerificationView: View {
             VStack(spacing: 16) {
                 TextField("Enter verification code", text: $inputCode)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
-                    .onChange(of: inputCode) { _, newValue in
-                        inputCode = newValue.filter { $0.isLetter || $0.isNumber }.uppercased()
-                    }
+                    .keyboardType(.numberPad)
                     .padding()
-                Text("Ask In Cho for your code.\n(SMS Mobile Text Verification is currently disabled because\nIn Cho does not want to pay for the Twilio Account)")
-                    .font(.footnote)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
                 HStack {
                     Button("Cancel") {
                         verifyingMember = nil
                         inputCode = ""
+                        verificationID = nil
                     }
                     Spacer()
                     Button("Confirm") {
-                        if inputCode.caseInsensitiveCompare(member.username) == .orderedSame {
-                            verifyingMember = nil
-                            inputCode = ""
-                            showRegister = true
+                        guard let id = verificationID else { return }
+                        let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: inputCode)
+                        Auth.auth().signIn(with: credential) { _, error in
+                            DispatchQueue.main.async {
+                                if error == nil {
+                                    verifyingMember = nil
+                                    inputCode = ""
+                                    verificationID = nil
+                                    showRegister = true
+                                    try? Auth.auth().signOut()
+                                } else {
+                                    errorMessage = error?.localizedDescription
+                                }
+                            }
                         }
                     }
                     .disabled(inputCode.isEmpty)
@@ -103,6 +122,9 @@ struct MemberVerificationView: View {
                 .padding(.horizontal)
             }
             .presentationDetents([.medium])
+        }
+        .alert(errorMessage ?? "", isPresented: Binding(get: { errorMessage != nil }, set: { _ in errorMessage = nil })) {
+            Button("OK", role: .cancel) { }
         }
     }
 }

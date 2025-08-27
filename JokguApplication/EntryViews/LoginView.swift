@@ -1,5 +1,6 @@
 import SwiftUI
 import LocalAuthentication
+import FirebaseAuth
 
 struct LoginView: View {
     @Binding var isLoggedIn: Bool
@@ -13,8 +14,12 @@ struct LoginView: View {
     @State private var showMemberVerifyView: Bool = false
     @State private var showAddressPrompt: Bool = false
     @State private var showRecoveryPrompt: Bool = false
+    @State private var recoveryPhoneNumber: String = ""
     @State private var recoveryCodeInput: String = ""
+    @State private var recoveryVerificationID: String? = nil
     @State private var recoveryMember: Member? = nil
+    @State private var isSendingRecoveryCode = false
+    @State private var recoveryError: String? = nil
     @State private var canUseBiometrics = false
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var databaseManager: DatabaseManager
@@ -184,42 +189,71 @@ struct LoginView: View {
         }
         .sheet(isPresented: $showRecoveryPrompt) {
             VStack(spacing: 16) {
-                TextField("Enter verification code", text: $recoveryCodeInput)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .keyboardType(.numberPad)
-                    .padding(.horizontal)
+                if recoveryVerificationID == nil {
+                    TextField("Enter phone number", text: $recoveryPhoneNumber)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .keyboardType(.phonePad)
+                        .padding(.horizontal)
 
-                Text("Ask In Cho for your verification code.\n(SMS Mobile Text Verification is currently disabled because\nIn Cho does not want to pay for the Twilio Account)")
-                    .font(.footnote)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-
-                HStack {
-                    Button("Cancel") {
-                        showRecoveryPrompt = false
-                        recoveryCodeInput = ""
+                    Button("Send Code") {
+                        let phone = recoveryPhoneNumber.hasPrefix("+") ? recoveryPhoneNumber : "+1" + recoveryPhoneNumber
+                        isSendingRecoveryCode = true
+                        PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
+                            DispatchQueue.main.async {
+                                isSendingRecoveryCode = false
+                                if let id = id {
+                                    recoveryVerificationID = id
+                                } else if let error = error {
+                                    recoveryError = error.localizedDescription
+                                }
+                            }
+                        }
                     }
-
-                    Spacer()
+                    .disabled(recoveryPhoneNumber.isEmpty || isSendingRecoveryCode)
+                } else {
+                    TextField("Enter verification code", text: $recoveryCodeInput)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .keyboardType(.numberPad)
+                        .padding(.horizontal)
 
                     Button("Confirm") {
-                        if let code = Int(recoveryCodeInput), code != 0 {
-                            Task {
-                                if let member = try? await DatabaseManager.shared.fetchMemberByRecovery(code: code) {
-                                    await MainActor.run {
-                                        showRecoveryPrompt = false
-                                        recoveryCodeInput = ""
-                                        recoveryMember = member
+                        guard let id = recoveryVerificationID else { return }
+                        let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: recoveryCodeInput)
+                        Auth.auth().signIn(with: credential) { _, error in
+                            DispatchQueue.main.async {
+                                if error == nil {
+                                    Task {
+                                        if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: recoveryPhoneNumber) {
+                                            await MainActor.run {
+                                                showRecoveryPrompt = false
+                                                recoveryPhoneNumber = ""
+                                                recoveryCodeInput = ""
+                                                recoveryVerificationID = nil
+                                                recoveryMember = member
+                                                try? Auth.auth().signOut()
+                                            }
+                                        }
                                     }
+                                } else {
+                                    recoveryError = error?.localizedDescription
                                 }
                             }
                         }
                     }
                     .disabled(recoveryCodeInput.isEmpty)
                 }
-                .padding(.top)
+
+                Button("Cancel") {
+                    showRecoveryPrompt = false
+                    recoveryPhoneNumber = ""
+                    recoveryCodeInput = ""
+                    recoveryVerificationID = nil
+                }
             }
             .padding()
+        }
+        .alert(recoveryError ?? "", isPresented: Binding(get: { recoveryError != nil }, set: { _ in recoveryError = nil })) {
+            Button("OK", role: .cancel) { }
         }
         .sheet(item: $recoveryMember) { member in
             RegisterView(member: member)
