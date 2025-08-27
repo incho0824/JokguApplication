@@ -6,26 +6,17 @@
 //
 
 import SwiftUI
-import UIKit
 import UserNotifications
 import FirebaseCore
 
-class AppDelegate: NSObject, UIApplicationDelegate { //UIResponder
-  func application(_ application: UIApplication,
-                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-    FirebaseApp.configure()
-
-    return true
-  }
-}
-
 @main
 struct JokguApplicationApp: App {
-    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var databaseManager = DatabaseManager.shared
+    @StateObject private var databaseManager: DatabaseManager
 
     init() {
+        FirebaseApp.configure()
+        _databaseManager = StateObject(wrappedValue: DatabaseManager.shared)
         UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .alert, .sound]) { _, _ in }
         updateAppBadge()
     }
