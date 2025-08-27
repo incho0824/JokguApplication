@@ -61,8 +61,12 @@ struct ManagementView: View {
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Notification").font(.caption)
-                        TextField("Notification", text: $keyCode.notification)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        TextEditor(text: $keyCode.notification)
+                            .frame(minHeight: 80)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .stroke(Color.gray.opacity(0.5))
+                            )
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Game day(s)").font(.caption)
