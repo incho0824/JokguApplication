@@ -80,7 +80,9 @@ struct PayStatusView: View {
                         fields[monthIndex] = newValue
                         userFields[member.username] = fields
                         let intFields = fields.map { Int($0) ?? 0 }
-                        _ = DatabaseManager.shared.saveUserFields(username: member.username, fields: intFields)
+                        Task {
+                            _ = await DatabaseManager.shared.saveUserFields(username: member.username, fields: intFields)
+                        }
                     }
                 )
                 TextField("-", text: binding)
