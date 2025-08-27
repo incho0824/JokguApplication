@@ -115,7 +115,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     private func memberDocument(id: Int) async throws -> DocumentReference? {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentReference?, Error>) in
             db.collection("member").whereField("id", isEqualTo: id).limit(to: 1).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -128,7 +128,7 @@ final class DatabaseManager: ObservableObject {
 
     // MARK: - Authentication & Users
     func userExists(_ username: String) async throws -> Bool {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
             db.collection("member").whereField("username", isEqualTo: username.uppercased()).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -144,7 +144,7 @@ final class DatabaseManager: ObservableObject {
         guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
 
         // Obtain a new sequential ID using a transaction on a counter document
-        let newId = try await withCheckedThrowingContinuation { continuation in
+        let newId: Int = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Int, Error>) in
             let counterRef = db.collection("counters").document("member")
             db.runTransaction({ transaction, errorPointer -> Any? in
                 let counterDoc: DocumentSnapshot
@@ -186,7 +186,7 @@ final class DatabaseManager: ObservableObject {
         ]
         if let picture = picture { data["picture"] = pictureString(picture) }
 
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             db.collection("member").addDocument(data: data) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -198,7 +198,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func validateUser(username: String, password: String) async throws -> Int? {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Int?, Error>) in
             db.collection("member")
                 .whereField("username", isEqualTo: username.uppercased())
                 .whereField("password", isEqualTo: hashPassword(password))
@@ -216,7 +216,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func fetchMembers() async throws -> [Member] {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Member], Error>) in
             db.collection("member").order(by: "orderIndex").getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -236,7 +236,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func fetchTodayMembers() async throws -> [Member] {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Member], Error>) in
             db.collection("member").whereField("today", isEqualTo: 1).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -249,7 +249,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func fetchUser(username: String) async throws -> Member? {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Member?, Error>) in
             db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -263,7 +263,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func fetchMemberByRecovery(code: Int) async throws -> Member? {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Member?, Error>) in
             db.collection("member").whereField("recovery", isEqualTo: code).limit(to: 1).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -277,7 +277,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func fetchUnsyncedMembers() async throws -> [Member] {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Member], Error>) in
             db.collection("member").whereField("syncd", isEqualTo: 0).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -292,7 +292,7 @@ final class DatabaseManager: ObservableObject {
     // MARK: - Updates
     private func updateMember(id: Int, fields: [String: Any]) async throws {
         guard let ref = try await memberDocument(id: id) else { return }
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.updateData(fields) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -317,7 +317,7 @@ final class DatabaseManager: ObservableObject {
 
     func deleteUser(id: Int) async throws {
         guard let ref = try await memberDocument(id: id) else { return }
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.delete { error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -340,7 +340,7 @@ final class DatabaseManager: ObservableObject {
             "dob": dob
         ]
         if let picture = picture { fields["picture"] = pictureString(picture) }
-        let doc = try await withCheckedThrowingContinuation { continuation in
+        let doc: QueryDocumentSnapshot? = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<QueryDocumentSnapshot?, Error>) in
             db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -349,7 +349,7 @@ final class DatabaseManager: ObservableObject {
                 }
             }
         }
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             doc?.reference.updateData(fields) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -362,7 +362,7 @@ final class DatabaseManager: ObservableObject {
 
     func updatePassword(username: String, currentPassword: String, newPassword: String) async throws {
         let currentHashed = hashPassword(currentPassword)
-        let doc = try await withCheckedThrowingContinuation { continuation in
+        let doc: QueryDocumentSnapshot? = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<QueryDocumentSnapshot?, Error>) in
             db.collection("member")
                 .whereField("username", isEqualTo: username.uppercased())
                 .whereField("password", isEqualTo: currentHashed)
@@ -375,7 +375,7 @@ final class DatabaseManager: ObservableObject {
                     }
                 }
         }
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             doc?.reference.updateData(["password": hashPassword(newPassword)]) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -387,7 +387,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updateToday(username: String, value: Int) async throws {
-        let doc = try await withCheckedThrowingContinuation { continuation in
+        let doc: QueryDocumentSnapshot? = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<QueryDocumentSnapshot?, Error>) in
             db.collection("member").whereField("username", isEqualTo: username.uppercased()).limit(to: 1).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -396,7 +396,7 @@ final class DatabaseManager: ObservableObject {
                 }
             }
         }
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             doc?.reference.updateData(["today": value]) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -412,7 +412,7 @@ final class DatabaseManager: ObservableObject {
         if let management = management {
             return [management]
         }
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[KeyCode], Error>) in
             db.collection("management").getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
