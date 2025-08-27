@@ -40,32 +40,42 @@ struct JokguApplicationApp: App {
         UNUserNotificationCenter.current().setBadgeCount(badgeCount) { _ in }
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             if settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional {
-                scheduleNoonAlertIfNeeded(badgeCount: badgeCount)
+                scheduleNextPlayDayAlert()
             }
         }
     }
 
-    private func scheduleNoonAlertIfNeeded(badgeCount: Int) {
+    private func scheduleNextPlayDayAlert() {
+        guard let playDays = databaseManager.management?.playwhen, !playDays.isEmpty else { return }
+
         let center = UNUserNotificationCenter.current()
         let identifier = "noonAlert"
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
 
-        guard badgeCount == 1 else { return }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        let now = Date()
 
-        var dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-        dateComponents.hour = 12
-        dateComponents.minute = 0
+        for offset in 0..<7 {
+            guard let date = Calendar.current.date(byAdding: .day, value: offset, to: now) else { continue }
+            let dayName = formatter.string(from: date)
+            guard playDays.contains(dayName) else { continue }
 
-        guard let triggerDate = Calendar.current.date(from: dateComponents),
-              triggerDate > Date() else { return }
+            var components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+            components.hour = 12
+            components.minute = 0
 
-        let content = UNMutableNotificationContent()
-        content.title = "Reminder"
-        content.body = "Game day today!"
-        content.sound = .default
+            guard let triggerDate = Calendar.current.date(from: components), triggerDate > now else { continue }
 
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-        center.add(request, withCompletionHandler: nil)
+            let content = UNMutableNotificationContent()
+            content.title = "Reminder"
+            content.body = "Game day today!"
+            content.sound = .default
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+            center.add(request, withCompletionHandler: nil)
+            break
+        }
     }
 }
