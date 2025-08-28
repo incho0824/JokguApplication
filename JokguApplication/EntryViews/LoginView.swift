@@ -172,7 +172,7 @@ struct LoginView: View {
                     Spacer()
 
                     Button("Confirm") {
-                        let storedCode = databaseManager.management?.code ?? ""
+                        let storedCode = databaseManager.management?.code ?? "1234"
                         if keyCodeInput == storedCode {
                             showKeyCodePrompt = false
                             keyCodeInput = ""

@@ -65,6 +65,20 @@ final class DatabaseManager: ObservableObject {
                     "id": 1,
                     "keycode": "1234"
                 ])
+                DispatchQueue.main.async {
+                    self.management = KeyCode(
+                        id: 1,
+                        code: "1234",
+                        address: "",
+                        welcome: "",
+                        youtube: nil,
+                        kakao: nil,
+                        notification: "",
+                        playwhen: [],
+                        fee: 0,
+                        venmo: ""
+                    )
+                }
                 return
             }
 
