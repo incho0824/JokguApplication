@@ -206,6 +206,8 @@ struct LoginView: View {
                             recoveryError = "Phone number must be 10 or 11 digits"
                             return
                         }
+                        // Store standardized phone number for later lookup
+                        recoveryPhoneNumber = phone
                         isSendingRecoveryCode = true
                         PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
                             DispatchQueue.main.async {
@@ -239,6 +241,12 @@ struct LoginView: View {
                                                 recoveryCodeInput = ""
                                                 recoveryVerificationID = nil
                                                 recoveryMember = member
+                                                try? Auth.auth().signOut()
+                                            }
+                                        } else {
+                                            await MainActor.run {
+                                                recoveryError = "No account found for this phone number"
+                                                recoveryVerificationID = nil
                                                 try? Auth.auth().signOut()
                                             }
                                         }
