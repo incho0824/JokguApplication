@@ -11,6 +11,7 @@ struct MemberVerificationView: View {
     @State private var verificationID: String? = nil
     @State private var isSendingCode = false
     @State private var errorMessage: String? = nil
+    @State private var successMessage: String? = nil
 
     var body: some View {
         NavigationView {
@@ -78,14 +79,8 @@ struct MemberVerificationView: View {
                 }
             }
         }) {
-            if let member = selectedMember {
-                RegisterView(member: member) {
-                    dismiss()
-                }
-            } else {
-                RegisterView() {
-                    dismiss()
-                }
+            RegisterView() {
+                dismiss()
             }
         }
         .sheet(item: $verifyingMember) { member in
@@ -102,16 +97,25 @@ struct MemberVerificationView: View {
                     }
                     Spacer()
                     Button("Confirm") {
-                        guard let id = verificationID else { return }
+                        guard let id = verificationID, let member = verifyingMember else { return }
                         let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: inputCode)
                         Auth.auth().signIn(with: credential) { _, error in
                             DispatchQueue.main.async {
                                 if error == nil {
-                                    verifyingMember = nil
-                                    inputCode = ""
-                                    verificationID = nil
-                                    showRegister = true
-                                    try? Auth.auth().signOut()
+                                    Task {
+                                        do {
+                                            try await DatabaseManager.shared.updateSyncd(id: member.id, syncd: 1)
+                                            await MainActor.run {
+                                                successMessage = "User's identification has been verified"
+                                                verifyingMember = nil
+                                                inputCode = ""
+                                                verificationID = nil
+                                                try? Auth.auth().signOut()
+                                            }
+                                        } catch {
+                                            await MainActor.run { errorMessage = error.localizedDescription }
+                                        }
+                                    }
                                 } else {
                                     errorMessage = error?.localizedDescription
                                 }
@@ -126,6 +130,9 @@ struct MemberVerificationView: View {
         }
         .alert(errorMessage ?? "", isPresented: Binding(get: { errorMessage != nil }, set: { _ in errorMessage = nil })) {
             Button("OK", role: .cancel) { }
+        }
+        .alert(successMessage ?? "", isPresented: Binding(get: { successMessage != nil }, set: { _ in successMessage = nil })) {
+            Button("OK") { dismiss() }
         }
     }
 }
