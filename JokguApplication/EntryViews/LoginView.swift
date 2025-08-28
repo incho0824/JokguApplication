@@ -197,7 +197,15 @@ struct LoginView: View {
 
                     Button("Send Code") {
                         let digits = recoveryPhoneNumber.filter { $0.isNumber }
-                        let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
+                        let phone: String
+                        if digits.count == 10 {
+                            phone = "+1" + digits
+                        } else if digits.count == 11 {
+                            phone = "+" + digits
+                        } else {
+                            recoveryError = "Phone number must be 10 or 11 digits"
+                            return
+                        }
                         isSendingRecoveryCode = true
                         PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
                             DispatchQueue.main.async {
