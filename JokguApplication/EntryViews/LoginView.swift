@@ -166,13 +166,31 @@ struct LoginView: View {
     private func sendCode() {
         let phone = formatForAuth(phoneNumber)
         isSendingCode = true
-        PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
-            DispatchQueue.main.async {
-                isSendingCode = false
-                if let id = id {
-                    verificationID = id
-                } else if let error = error {
-                    errorMessage = error.localizedDescription
+        Task {
+            let digits = phoneNumber.filter { $0.isNumber }
+            let candidates = [phoneNumber, digits]
+            var exists = false
+            for number in candidates {
+                if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: number), member.syncd == 1 {
+                    exists = true
+                    break
+                }
+            }
+            if exists {
+                PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
+                    DispatchQueue.main.async {
+                        isSendingCode = false
+                        if let id = id {
+                            verificationID = id
+                        } else if let error = error {
+                            errorMessage = error.localizedDescription
+                        }
+                    }
+                }
+            } else {
+                await MainActor.run {
+                    isSendingCode = false
+                    errorMessage = "Account has not been registered"
                 }
             }
         }
