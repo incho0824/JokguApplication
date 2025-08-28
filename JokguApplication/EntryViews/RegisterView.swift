@@ -8,6 +8,7 @@ struct RegisterView: View {
     var onComplete: (() -> Void)? = nil
     @State private var firstName: String = ""
     @State private var lastName: String = ""
+    @State private var phoneNumber: String = ""
     @State private var dob: Date? = nil
     @State private var username: String = ""
     @State private var password: String = ""
@@ -16,13 +17,17 @@ struct RegisterView: View {
     @State private var messageColor: Color = .red
     @State private var selectedPhoto: PhotosPickerItem? = nil
     @State private var pictureData: Data? = nil
-    
+    @State private var verificationID: String? = nil
+    @State private var smsCode: String = ""
+    @State private var showVerificationSheet = false
+    @State private var isSendingCode = false
 
     init(member: Member? = nil, onComplete: (() -> Void)? = nil) {
         self.member = member
         self.onComplete = onComplete
         _firstName = State(initialValue: member?.firstName ?? "")
         _lastName = State(initialValue: member?.lastName ?? "")
+        _phoneNumber = State(initialValue: member?.phoneNumber ?? "")
         if let dobString = member?.dob {
             let formatter = DateFormatter()
             formatter.dateFormat = "MM/dd/yyyy"
@@ -68,6 +73,14 @@ struct RegisterView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .padding(.horizontal)
 
+                TextField("Phone Number", text: $phoneNumber)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.phonePad)
+                    .padding(.horizontal)
+                    .onChange(of: phoneNumber) { _, newValue in
+                        phoneNumber = formatPhoneNumber(newValue)
+                    }
+
                 DatePicker("Date of Birth", selection: Binding(
                     get: { dob ?? Date() },
                     set: { dob = $0 }
@@ -112,7 +125,8 @@ struct RegisterView: View {
                     if member == nil {
                         let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedUser.isEmpty || password.isEmpty {
+                        let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty {
                             showMessage("All fields are required", color: .red)
                         } else if dob == nil {
                             showMessage("Date of birth is required", color: .red)
@@ -122,18 +136,28 @@ struct RegisterView: View {
                             showMessage("Passwords do not match", color: .red)
                         } else if !trimmedUser.allSatisfy({ $0.isLetter || $0.isNumber }) {
                             showMessage("Username must contain letters and numbers only", color: .red)
-                        } else if let authID = Auth.auth().currentUser?.uid {
-                            Task {
-                                do {
-                                    try await DatabaseManager.shared.insertUser(authID: authID, username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData())
-                                    try? Auth.auth().signOut()
-                                    await MainActor.run {
-                                        showMessage("User created", color: .green)
-                                        onComplete?()
-                                        dismiss()
+                        } else {
+                            let digits = trimmedPhone.filter { $0.isNumber }
+                            let phone: String
+                            if digits.count == 10 {
+                                phone = "+1" + digits
+                            } else if digits.count == 11 && digits.hasPrefix("1") {
+                                phone = "+" + digits
+                            } else {
+                                showMessage("Invalid phone number", color: .red)
+                                return
+                            }
+                            isSendingCode = true
+                            Auth.auth().settings?.isAppVerificationDisabledForTesting = true
+                            PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
+                                DispatchQueue.main.async {
+                                    isSendingCode = false
+                                    if let id = id {
+                                        verificationID = id
+                                        showVerificationSheet = true
+                                    } else if let error = error {
+                                        showMessage(error.localizedDescription, color: .red)
                                     }
-                                } catch {
-                                    await MainActor.run { showMessage("Unable to create user", color: .red) }
                                 }
                             }
                         }
@@ -151,7 +175,6 @@ struct RegisterView: View {
                                         await MainActor.run { showMessage("Username already exists", color: .red) }
                                     } else {
                                         try await DatabaseManager.shared.updateMemberCredentials(id: member.id, username: trimmedUser, password: password)
-                                        try await DatabaseManager.shared.updateSyncd(id: member.id, value: 1)
                                         await MainActor.run {
                                             showMessage("User updated", color: .green)
                                             onComplete?()
@@ -165,11 +188,50 @@ struct RegisterView: View {
                         }
                     }
                 }
+                .disabled(isSendingCode)
             }
             .padding(.horizontal)
             .padding(.top)
         }
         .padding()
+        .sheet(isPresented: $showVerificationSheet) {
+            VStack(spacing: 16) {
+                TextField("Enter verification code", text: $smsCode)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.numberPad)
+                    .padding()
+                HStack {
+                    Button("Cancel") {
+                        showVerificationSheet = false
+                        smsCode = ""
+                        verificationID = nil
+                    }
+                    Spacer()
+                    Button("Confirm") {
+                        guard let id = verificationID else { return }
+                        let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: smsCode)
+                        Auth.auth().signIn(with: credential) { _, error in
+                            DispatchQueue.main.async {
+                                if let error = error {
+                                    showMessage(error.localizedDescription, color: .red)
+                                } else {
+                                    Task {
+                                        await registerAfterVerification()
+                                        try? Auth.auth().signOut()
+                                    }
+                                }
+                                showVerificationSheet = false
+                                smsCode = ""
+                                verificationID = nil
+                            }
+                        }
+                    }
+                    .disabled(smsCode.isEmpty)
+                }
+                .padding(.horizontal)
+            }
+            .presentationDetents([.medium])
+        }
     }
 
     private func showMessage(_ text: String, color: Color) {
@@ -186,6 +248,53 @@ struct RegisterView: View {
         return formatter
     }
 
+    private func registerAfterVerification() async {
+        let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let dob = dob else { return }
+        do {
+            if try await DatabaseManager.shared.userExists(trimmedUser) {
+                await MainActor.run { showMessage("Username already exists", color: .red) }
+            } else {
+                try await DatabaseManager.shared.insertUser(
+                    username: trimmedUser,
+                    password: password,
+                    firstName: trimmedFirst,
+                    lastName: trimmedLast,
+                    phoneNumber: trimmedPhone,
+                    dob: dateFormatter.string(from: dob),
+                    picture: pictureData ?? UIImage(named: "default-profile")?.pngData()
+                )
+                await MainActor.run {
+                    showMessage("User created", color: .green)
+                    onComplete?()
+                    dismiss()
+                }
+            }
+        } catch {
+            await MainActor.run { showMessage("Unable to create user", color: .red) }
+        }
+    }
+
+    private func formatPhoneNumber(_ number: String) -> String {
+        let digits = number.filter { $0.isNumber }
+        let limited = String(digits.prefix(10))
+        let area = limited.prefix(3)
+        let middle = limited.dropFirst(3).prefix(3)
+        let last = limited.dropFirst(6)
+        var result = ""
+        if !area.isEmpty {
+            result += "(" + area
+            if area.count == 3 { result += ")" }
+        }
+        result += middle
+        if !last.isEmpty {
+            result += "-" + last
+        }
+        return result
+    }
 }
 
 #Preview {
