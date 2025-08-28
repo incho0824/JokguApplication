@@ -418,13 +418,12 @@ final class DatabaseManager: ObservableObject {
 
     func fetchUnsyncedMembers() async throws -> [Member] {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Member], Error>) in
-            db.collection("member").getDocuments { snapshot, error in
+            db.collection("member").whereField("syncd", isEqualTo: 0).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
                     let items = snapshot?.documents.compactMap { self.memberFromDoc($0) } ?? []
-                    let unsynced = items.filter { $0.syncd == 0 }
-                    continuation.resume(returning: unsynced)
+                    continuation.resume(returning: items)
                 }
             }
         }
