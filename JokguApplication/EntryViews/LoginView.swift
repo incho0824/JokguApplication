@@ -183,7 +183,13 @@ struct LoginView: View {
         let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: smsCode)
         Auth.auth().signIn(with: credential) { _, error in
             DispatchQueue.main.async {
-                if error == nil {
+                if let nsError = error as NSError? {
+                    if AuthErrorCode.Code(rawValue: nsError.code) == .userNotFound {
+                        errorMessage = "Account has not been registered"
+                    } else {
+                        errorMessage = nsError.localizedDescription
+                    }
+                } else {
                     Task {
                         let digits = phoneNumber.filter { $0.isNumber }
                         let candidates = [phoneNumber, digits]
@@ -209,8 +215,6 @@ struct LoginView: View {
                             smsCode = ""
                         }
                     }
-                } else {
-                    errorMessage = error?.localizedDescription
                 }
             }
         }
