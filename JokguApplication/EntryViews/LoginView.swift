@@ -229,8 +229,6 @@ struct LoginView: View {
 
                     Button("Confirm") {
                         guard let id = recoveryVerificationID else { return }
-                        print("Verification ID: \(id)")
-                        print("Entered code: \(recoveryCodeInput)")
                         let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: recoveryCodeInput)
                         Auth.auth().signIn(with: credential) { _, error in
                             DispatchQueue.main.async {
