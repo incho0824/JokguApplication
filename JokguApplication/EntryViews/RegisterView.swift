@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import FirebaseAuth
 
 struct RegisterView: View {
     @Environment(\.dismiss) var dismiss
@@ -10,8 +11,8 @@ struct RegisterView: View {
     @State private var phoneNumber: String = ""
     @State private var dob: Date? = nil
     @State private var username: String = ""
-    @State private var password: String = ""
-    @State private var confirmPassword: String = ""
+    @State private var verificationID: String? = nil
+    @State private var smsCode: String = ""
     @State private var message: String? = nil
     @State private var messageColor: Color = .red
     @State private var selectedPhoto: PhotosPickerItem? = nil
@@ -76,12 +77,32 @@ struct RegisterView: View {
                         phoneNumber = formatPhoneNumber(newValue)
                     }
 
+                Button("Send Code") {
+                    let digits = phoneNumber.filter { $0.isNumber }
+                    let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
+                    Task {
+                        do {
+                            verificationID = try await DatabaseManager.shared.sendVerificationCode(to: phone)
+                            await MainActor.run { showMessage("Code sent", color: .green) }
+                        } catch {
+                            await MainActor.run { showMessage("Failed to send code", color: .red) }
+                        }
+                    }
+                }
+                .disabled(phoneNumber.filter { $0.isNumber }.count < 10)
+                .padding(.horizontal)
+
                 DatePicker("Date of Birth", selection: Binding(
                     get: { dob ?? Date() },
                     set: { dob = $0 }
                 ), displayedComponents: .date)
                     .datePickerStyle(.compact)
                     .environment(\.locale, Locale(identifier: "en_US"))
+                    .padding(.horizontal)
+
+                TextField("SMS Code", text: $smsCode)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.numberPad)
                     .padding(.horizontal)
             } else {
                 Text("Registering \(firstName) \(lastName)")
@@ -95,14 +116,6 @@ struct RegisterView: View {
                 .onChange(of: username) { _, newValue in
                     username = newValue.filter { $0.isLetter || $0.isNumber }
                 }
-                .padding(.horizontal)
-
-            SecureField("Password", text: $password)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding(.horizontal)
-
-            SecureField("Confirm Password", text: $confirmPassword)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
 
             if let message = message {
@@ -121,23 +134,23 @@ struct RegisterView: View {
                         let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty || password.isEmpty {
+                        if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || trimmedUser.isEmpty {
                             showMessage("All fields are required", color: .red)
                         } else if dob == nil {
                             showMessage("Date of birth is required", color: .red)
-                        } else if confirmPassword.isEmpty {
-                            showMessage("Please confirm your password", color: .red)
-                        } else if password != confirmPassword {
-                            showMessage("Passwords do not match", color: .red)
+                        } else if verificationID == nil || smsCode.isEmpty {
+                            showMessage("Phone verification required", color: .red)
                         } else if !trimmedUser.allSatisfy({ $0.isLetter || $0.isNumber }) {
                             showMessage("Username must contain letters and numbers only", color: .red)
                         } else {
                             Task {
                                 do {
+                                    try await DatabaseManager.shared.signIn(with: verificationID!, smsCode: smsCode)
                                     if try await DatabaseManager.shared.userExists(trimmedUser) {
                                         await MainActor.run { showMessage("Username already exists", color: .red) }
                                     } else {
-                                        try await DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData())
+                                        try await DatabaseManager.shared.insertUser(username: trimmedUser, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData())
+                                        try? Auth.auth().signOut()
                                         await MainActor.run {
                                             showMessage("User created", color: .green)
                                             onComplete?()
@@ -151,19 +164,15 @@ struct RegisterView: View {
                             }
                         }
                     } else if let member = member {
-                        if trimmedUser.isEmpty || password.isEmpty {
+                        if trimmedUser.isEmpty {
                             showMessage("All fields are required", color: .red)
-                        } else if confirmPassword.isEmpty {
-                            showMessage("Please confirm your password", color: .red)
-                        } else if password != confirmPassword {
-                            showMessage("Passwords do not match", color: .red)
                         } else {
                             Task {
                                 do {
                                     if try await DatabaseManager.shared.userExists(trimmedUser) && trimmedUser != member.username.uppercased() {
                                         await MainActor.run { showMessage("Username already exists", color: .red) }
                                     } else {
-                                        try await DatabaseManager.shared.updateMemberCredentials(id: member.id, username: trimmedUser, password: password)
+                                        try await DatabaseManager.shared.updateMemberUsername(id: member.id, username: trimmedUser)
                                         await MainActor.run {
                                             showMessage("User updated", color: .green)
                                             onComplete?()

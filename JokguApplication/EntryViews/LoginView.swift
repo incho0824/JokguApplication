@@ -1,25 +1,18 @@
 import SwiftUI
 import LocalAuthentication
-import FirebaseAuth
 
 struct LoginView: View {
     @Binding var isLoggedIn: Bool
     @Binding var userPermit: Int
     @Binding var loggedInUser: String
-    @State private var username: String = ""
-    @State private var password: String = ""
+    @State private var phoneNumber: String = ""
+    @State private var verificationCode: String = ""
+    @State private var verificationID: String? = nil
     @State private var loginFailed: Bool = false
     @State private var showKeyCodePrompt: Bool = false
     @State private var keyCodeInput: String = ""
     @State private var showMemberVerifyView: Bool = false
     @State private var showAddressPrompt: Bool = false
-    @State private var showRecoveryPrompt: Bool = false
-    @State private var recoveryPhoneNumber: String = ""
-    @State private var recoveryCodeInput: String = ""
-    @State private var recoveryVerificationID: String? = nil
-    @State private var recoveryMember: Member? = nil
-    @State private var isSendingRecoveryCode = false
-    @State private var recoveryError: String? = nil
     @State private var canUseBiometrics = false
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var databaseManager: DatabaseManager
@@ -60,17 +53,36 @@ struct LoginView: View {
                 }
                 .padding(.bottom, 20)
 
-                TextField("Username", text: $username)
+                TextField("Phone Number", text: $phoneNumber)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .onChange(of: username) { _, newValue in
-                        username = newValue.filter { $0.isLetter || $0.isNumber }
+                    .keyboardType(.phonePad)
+                    .onChange(of: phoneNumber) { _, newValue in
+                        phoneNumber = formatPhoneNumber(newValue)
                     }
                     .padding(.horizontal)
 
-                SecureField("Password", text: $password)
+                Button("Send Code") {
+                    let digits = phoneNumber.filter { $0.isNumber }
+                    let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
+                    Task {
+                        do {
+                            verificationID = try await DatabaseManager.shared.sendVerificationCode(to: phone)
+                        } catch {
+                            await MainActor.run {
+                                loginFailed = true
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                    loginFailed = false
+                                }
+                            }
+                        }
+                    }
+                }
+                .disabled(phoneNumber.filter { $0.isNumber }.count < 10)
+                .padding(.horizontal)
+
+                TextField("SMS Code", text: $verificationCode)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.numberPad)
                     .padding(.horizontal)
                     .overlay(alignment: .trailing) {
                         if canUseBiometrics {
@@ -83,18 +95,28 @@ struct LoginView: View {
                     }
 
                 Button("Login") {
-                    let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                    let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
                     Task {
                         do {
-                            if let permit = try await DatabaseManager.shared.validateUser(username: trimmedUser, password: password) {
-                                await MainActor.run {
-                                    loggedInUser = trimmedUser
-                                    isLoggedIn = true
-                                    loginFailed = false
-                                    userPermit = permit
-                                    let defaults = UserDefaults.standard
-                                    defaults.set(trimmedUser, forKey: "biometricUsername")
-                                    defaults.set(permit, forKey: "biometricPermit")
+                            if let verificationID = verificationID {
+                                try await DatabaseManager.shared.signIn(with: verificationID, smsCode: verificationCode)
+                                if let member = try await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: trimmedPhone) {
+                                    await MainActor.run {
+                                        loggedInUser = member.username
+                                        isLoggedIn = true
+                                        loginFailed = false
+                                        userPermit = member.permit
+                                        let defaults = UserDefaults.standard
+                                        defaults.set(member.username, forKey: "biometricUsername")
+                                        defaults.set(member.permit, forKey: "biometricPermit")
+                                    }
+                                } else {
+                                    await MainActor.run {
+                                        loginFailed = true
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                            loginFailed = false
+                                        }
+                                    }
                                 }
                             } else {
                                 await MainActor.run {
@@ -118,10 +140,6 @@ struct LoginView: View {
 
                 Button("Register") {
                     showKeyCodePrompt = true
-                }
-
-                Button("Forgot Password?") {
-                    showRecoveryPrompt = true
                 }
 
                 if loginFailed {
@@ -187,78 +205,6 @@ struct LoginView: View {
             }
             .padding()
         }
-        .sheet(isPresented: $showRecoveryPrompt) {
-            VStack(spacing: 16) {
-                if recoveryVerificationID == nil {
-                    TextField("Enter phone number", text: $recoveryPhoneNumber)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.phonePad)
-                        .padding(.horizontal)
-
-                    Button("Send Code") {
-                        let digits = recoveryPhoneNumber.filter { $0.isNumber }
-                        let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
-                        isSendingRecoveryCode = true
-                        PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
-                            DispatchQueue.main.async {
-                                isSendingRecoveryCode = false
-                                if let id = id {
-                                    recoveryVerificationID = id
-                                } else if let error = error {
-                                    recoveryError = error.localizedDescription
-                                }
-                            }
-                        }
-                    }
-                    .disabled(recoveryPhoneNumber.isEmpty || isSendingRecoveryCode)
-                } else {
-                    TextField("Enter verification code", text: $recoveryCodeInput)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.numberPad)
-                        .padding(.horizontal)
-
-                    Button("Confirm") {
-                        guard let id = recoveryVerificationID else { return }
-                        let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: recoveryCodeInput)
-                        Auth.auth().signIn(with: credential) { _, error in
-                            DispatchQueue.main.async {
-                                if error == nil {
-                                    Task {
-                                        if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: recoveryPhoneNumber) {
-                                            await MainActor.run {
-                                                showRecoveryPrompt = false
-                                                recoveryPhoneNumber = ""
-                                                recoveryCodeInput = ""
-                                                recoveryVerificationID = nil
-                                                recoveryMember = member
-                                                try? Auth.auth().signOut()
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    recoveryError = error?.localizedDescription
-                                }
-                            }
-                        }
-                    }
-                    .disabled(recoveryCodeInput.isEmpty)
-                }
-
-                Button("Cancel") {
-                    showRecoveryPrompt = false
-                    recoveryPhoneNumber = ""
-                    recoveryCodeInput = ""
-                    recoveryVerificationID = nil
-                }
-            }
-            .padding()
-        }
-        .alert(recoveryError ?? "", isPresented: Binding(get: { recoveryError != nil }, set: { _ in recoveryError = nil })) {
-            Button("OK", role: .cancel) { }
-        }
-        .sheet(item: $recoveryMember) { member in
-            RegisterView(member: member)
-        }
         .sheet(isPresented: $showMemberVerifyView) {
             MemberVerificationView()
         }
@@ -269,6 +215,24 @@ struct LoginView: View {
         if let url = URL(string: "http://maps.apple.com/?daddr=\(encoded)") {
             openURL(url)
         }
+    }
+
+    private func formatPhoneNumber(_ number: String) -> String {
+        let digits = number.filter { $0.isNumber }
+        let limited = String(digits.prefix(10))
+        let area = limited.prefix(3)
+        let middle = limited.dropFirst(3).prefix(3)
+        let last = limited.dropFirst(6)
+        var result = ""
+        if !area.isEmpty {
+            result += "(" + area
+            if area.count == 3 { result += ")" }
+        }
+        result += middle
+        if !last.isEmpty {
+            result += "-" + last
+        }
+        return result
     }
 
     private func authenticateWithBiometrics() {
