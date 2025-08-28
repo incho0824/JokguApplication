@@ -4,6 +4,7 @@ import FirebaseFirestore
 import FirebaseStorage
 import CryptoKit
 import Combine
+import FirebaseAuth
 
 struct KeyCode: Identifiable {
     let id: Int
@@ -48,6 +49,16 @@ final class DatabaseManager: ObservableObject {
     private var memberRefCache: [Int: DocumentReference] = [:]
     private var memberUsernameRefCache: [String: DocumentReference] = [:]
 
+    private var isAuthenticated: Bool {
+        Auth.auth().currentUser != nil
+    }
+
+    private func requireAuth() throws {
+        guard isAuthenticated else {
+            throw NSError(domain: "Unauthenticated", code: 401)
+        }
+    }
+
     private init() {
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()
@@ -66,6 +77,7 @@ final class DatabaseManager: ObservableObject {
             guard let snapshot = snapshot else { return }
 
             if snapshot.documents.isEmpty {
+                guard self.isAuthenticated else { return }
                 let fields: [String: Any] = [
                     "id": 1,
                     "keycode": "1234",
@@ -218,6 +230,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
+        try requireAuth()
         let upperUsername = username.uppercased()
         guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
 
@@ -448,6 +461,7 @@ final class DatabaseManager: ObservableObject {
 
     // MARK: - Updates
     private func updateMember(id: Int, fields: [String: Any]) async throws {
+        try requireAuth()
         guard let ref = try await memberDocument(id: id) else { return }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.updateData(fields) { error in
@@ -477,6 +491,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updateOrders(_ updates: [(Int, Int)]) async throws {
+        try requireAuth()
         let batch = db.batch()
         for (id, order) in updates {
             if let ref = try await memberDocument(id: id) {
@@ -495,6 +510,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func deleteUser(id: Int) async throws {
+        try requireAuth()
         guard let ref = try await memberDocument(id: id) else { return }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.delete { error in
@@ -508,11 +524,13 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updateMemberCredentials(id: Int, username: String, password: String) async throws {
+        try requireAuth()
         let salt = generateSalt()
         try await updateMember(id: id, fields: ["username": username.uppercased(), "passwordHash": hashPassword(password, salt: salt), "salt": salt])
     }
 
     func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
+        try requireAuth()
         var fields: [String: Any] = [
             "firstname": firstName,
             "lastname": lastName,
@@ -553,6 +571,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updatePassword(username: String, currentPassword: String, newPassword: String) async throws {
+        try requireAuth()
         guard let ref = try await memberDocument(username: username) else { return }
         let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
             ref.getDocument { doc, error in
@@ -584,6 +603,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updateToday(username: String, value: Int) async throws {
+        try requireAuth()
         guard let ref = try await memberDocument(username: username) else { return }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.updateData(["today": value]) { error in
@@ -608,6 +628,10 @@ final class DatabaseManager: ObservableObject {
                 } else {
                     let items = snapshot?.documents.compactMap { self.keyCodeFromDoc($0) } ?? []
                     if items.isEmpty {
+                        guard self.isAuthenticated else {
+                            continuation.resume(returning: [])
+                            return
+                        }
                         let fields: [String: Any] = [
                             "id": 1,
                             "keycode": "1234",
@@ -655,6 +679,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updateManagement(id: Int, code: String, address: String, welcome: String, youtube: URL?, kakao: URL?, notification: String, playwhen: [String], fee: Int, venmo: String) {
+        guard isAuthenticated else { return }
         db.collection("management").whereField("id", isEqualTo: id).limit(to: 1).getDocuments { snapshot, _ in
             let fields: [String: Any] = [
                 "keycode": code,
@@ -680,6 +705,10 @@ final class DatabaseManager: ObservableObject {
     // MARK: - User Fields
     func saveUserFields(username: String, fields: [Int]) async -> Bool {
         await withCheckedContinuation { continuation in
+            guard self.isAuthenticated else {
+                continuation.resume(returning: false)
+                return
+            }
             var data: [String: Any] = ["username": username.uppercased()]
             for (index, value) in fields.enumerated() {
                 data["field\(index + 1)"] = value
