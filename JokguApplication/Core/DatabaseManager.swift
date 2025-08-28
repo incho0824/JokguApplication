@@ -182,7 +182,7 @@ final class DatabaseManager: ObservableObject {
         let upperUsername = username.uppercased()
         guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
 
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             Auth.auth().createUser(withEmail: upperUsername + "@example.com", password: password) { _, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -290,7 +290,7 @@ final class DatabaseManager: ObservableObject {
 
     func validateUser(username: String, password: String) async throws -> Int? {
         let key = username.uppercased()
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             Auth.auth().signIn(withEmail: key + "@example.com", password: password) { _, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -480,7 +480,7 @@ final class DatabaseManager: ObservableObject {
 
     func updateMemberCredentials(id: Int, username: String, password: String) async throws {
         let upper = username.uppercased()
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             Auth.auth().createUser(withEmail: upper + "@example.com", password: password) { _, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -537,7 +537,7 @@ final class DatabaseManager: ObservableObject {
         let email = username.uppercased() + "@example.com"
         let credential = EmailAuthProvider.credential(withEmail: email, password: currentPassword)
         guard let user = Auth.auth().currentUser else { return }
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             user.reauthenticate(with: credential) { _, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -546,7 +546,7 @@ final class DatabaseManager: ObservableObject {
                 }
             }
         }
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             user.updatePassword(to: newPassword) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
