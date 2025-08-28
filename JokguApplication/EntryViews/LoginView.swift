@@ -186,7 +186,15 @@ struct LoginView: View {
                 if error == nil {
                     Task {
                         let digits = phoneNumber.filter { $0.isNumber }
-                        if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: digits), member.syncd == 1 {
+                        let candidates = [phoneNumber, digits]
+                        var fetchedMember: Member?
+                        for number in candidates {
+                            if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: number), member.syncd == 1 {
+                                fetchedMember = member
+                                break
+                            }
+                        }
+                        if let member = fetchedMember {
                             await MainActor.run {
                                 loggedInUser = member.username
                                 userPermit = member.permit
