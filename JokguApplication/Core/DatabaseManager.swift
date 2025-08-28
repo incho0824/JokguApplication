@@ -1,7 +1,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseStorage
-import FirebaseAuth
+import CryptoKit
 import Combine
 
 struct KeyCode: Identifiable {
@@ -78,6 +78,17 @@ final class DatabaseManager: ObservableObject {
     }
 
     // MARK: - Helpers
+    private func generateSalt() -> String {
+        var rng = SystemRandomNumberGenerator()
+        let bytes = (0..<16).map { _ in UInt8.random(in: 0...255, using: &rng) }
+        return Data(bytes).base64EncodedString()
+    }
+
+    private func hashPassword(_ password: String, salt: String) -> String {
+        let data = Data((salt + password).utf8)
+        let hash = SHA256.hash(data: data)
+        return hash.compactMap { String(format: "%02x", $0) }.joined()
+    }
 
     private func memberFromDoc(_ doc: DocumentSnapshot) -> Member? {
         guard let data = doc.data() else { return nil }
@@ -182,17 +193,6 @@ final class DatabaseManager: ObservableObject {
         let upperUsername = username.uppercased()
         guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
 
-        try await withCheckedThrowingContinuation { continuation in
-            Auth.auth().createUser(withEmail: upperUsername + "@example.com", password: password) { _, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
-                }
-            }
-        }
-        try? Auth.auth().signOut()
-
         let counterRef = db.collection("counters").document("member")
         // Ensure the counter document exists before running the transaction
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -237,9 +237,12 @@ final class DatabaseManager: ObservableObject {
             }
         }
 
+        let salt = generateSalt()
         var data: [String: Any] = [
             "id": newId,
             "username": upperUsername,
+            "passwordHash": hashPassword(password, salt: salt),
+            "salt": salt,
             "firstname": firstName,
             "lastname": lastName,
             "phonenumber": phoneNumber,
@@ -290,15 +293,6 @@ final class DatabaseManager: ObservableObject {
 
     func validateUser(username: String, password: String) async throws -> Int? {
         let key = username.uppercased()
-        try await withCheckedThrowingContinuation { continuation in
-            Auth.auth().signIn(withEmail: key + "@example.com", password: password) { _, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
-                }
-            }
-        }
         if let ref = try await memberDocument(username: key) {
             let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
                 ref.getDocument { doc, error in
@@ -311,7 +305,10 @@ final class DatabaseManager: ObservableObject {
                     }
                 }
             }
-            if let data = doc.data() {
+            if let data = doc.data(),
+               let salt = data["salt"] as? String,
+               let stored = data["passwordHash"] as? String,
+               hashPassword(password, salt: salt) == stored {
                 return data["permit"] as? Int
             }
         }
@@ -479,18 +476,8 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updateMemberCredentials(id: Int, username: String, password: String) async throws {
-        let upper = username.uppercased()
-        try await withCheckedThrowingContinuation { continuation in
-            Auth.auth().createUser(withEmail: upper + "@example.com", password: password) { _, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
-                }
-            }
-        }
-        try? Auth.auth().signOut()
-        try await updateMember(id: id, fields: ["username": upper])
+        let salt = generateSalt()
+        try await updateMember(id: id, fields: ["username": username.uppercased(), "passwordHash": hashPassword(password, salt: salt), "salt": salt])
     }
 
     func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
@@ -534,20 +521,27 @@ final class DatabaseManager: ObservableObject {
     }
 
     func updatePassword(username: String, currentPassword: String, newPassword: String) async throws {
-        let email = username.uppercased() + "@example.com"
-        let credential = EmailAuthProvider.credential(withEmail: email, password: currentPassword)
-        guard let user = Auth.auth().currentUser else { return }
-        try await withCheckedThrowingContinuation { continuation in
-            user.reauthenticate(with: credential) { _, error in
+        guard let ref = try await memberDocument(username: username) else { return }
+        let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
+            ref.getDocument { doc, error in
                 if let error = error {
                     continuation.resume(throwing: error)
+                } else if let doc = doc {
+                    continuation.resume(returning: doc)
                 } else {
-                    continuation.resume(returning: ())
+                    continuation.resume(throwing: NSError(domain: "NotFound", code: 0))
                 }
             }
         }
-        try await withCheckedThrowingContinuation { continuation in
-            user.updatePassword(to: newPassword) { error in
+        guard let data = doc.data(),
+              let salt = data["salt"] as? String,
+              let stored = data["passwordHash"] as? String,
+              hashPassword(currentPassword, salt: salt) == stored else {
+            throw NSError(domain: "InvalidPassword", code: 1)
+        }
+        let newSalt = generateSalt()
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            ref.updateData(["passwordHash": hashPassword(newPassword, salt: newSalt), "salt": newSalt]) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
