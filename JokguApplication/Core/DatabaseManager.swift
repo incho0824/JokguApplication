@@ -1,7 +1,6 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseStorage
-import FirebaseAuth
 import CryptoKit
 import Combine
 
@@ -53,15 +52,7 @@ final class DatabaseManager: ObservableObject {
         settings.cacheSettings = PersistentCacheSettings()
         firestore.settings = settings
         self.db = firestore
-
-        Auth.auth().addStateDidChangeListener { [weak self] auth, user in
-            guard let self = self else { return }
-            if user == nil {
-                auth.signInAnonymously { _, _ in }
-            } else {
-                self.listenToManagement()
-            }
-        }
+        listenToManagement()
     }
 
     private func listenToManagement() {
