@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import FirebaseAuth
 
 struct RegisterView: View {
     @Environment(\.dismiss) var dismiss
@@ -16,6 +17,10 @@ struct RegisterView: View {
     @State private var messageColor: Color = .red
     @State private var selectedPhoto: PhotosPickerItem? = nil
     @State private var pictureData: Data? = nil
+    @State private var verificationID: String? = nil
+    @State private var smsCode: String = ""
+    @State private var showVerificationSheet = false
+    @State private var isSendingCode = false
 
     init(member: Member? = nil, onComplete: (() -> Void)? = nil) {
         self.member = member
@@ -132,21 +137,18 @@ struct RegisterView: View {
                         } else if !trimmedUser.allSatisfy({ $0.isLetter || $0.isNumber }) {
                             showMessage("Username must contain letters and numbers only", color: .red)
                         } else {
-                            Task {
-                                do {
-                                    if try await DatabaseManager.shared.userExists(trimmedUser) {
-                                        await MainActor.run { showMessage("Username already exists", color: .red) }
-                                    } else {
-                                        try await DatabaseManager.shared.insertUser(username: trimmedUser, password: password, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData ?? UIImage(named: "default-profile")?.pngData())
-                                        await MainActor.run {
-                                            showMessage("User created", color: .green)
-                                            onComplete?()
-                                            dismiss()
-                                        }
+                            let digits = trimmedPhone.filter { $0.isNumber }
+                            let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
+                            isSendingCode = true
+                            PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
+                                DispatchQueue.main.async {
+                                    isSendingCode = false
+                                    if let id = id {
+                                        verificationID = id
+                                        showVerificationSheet = true
+                                    } else if let error = error {
+                                        showMessage(error.localizedDescription, color: .red)
                                     }
-                                } catch {
-                                    print("Create user error:", error)
-                                    await MainActor.run { showMessage("Unable to create user", color: .red) }
                                 }
                             }
                         }
@@ -177,11 +179,50 @@ struct RegisterView: View {
                         }
                     }
                 }
+                .disabled(isSendingCode)
             }
             .padding(.horizontal)
             .padding(.top)
         }
         .padding()
+        .sheet(isPresented: $showVerificationSheet) {
+            VStack(spacing: 16) {
+                TextField("Enter verification code", text: $smsCode)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.numberPad)
+                    .padding()
+                HStack {
+                    Button("Cancel") {
+                        showVerificationSheet = false
+                        smsCode = ""
+                        verificationID = nil
+                    }
+                    Spacer()
+                    Button("Confirm") {
+                        guard let id = verificationID else { return }
+                        let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: smsCode)
+                        Auth.auth().signIn(with: credential) { _, error in
+                            DispatchQueue.main.async {
+                                if let error = error {
+                                    showMessage(error.localizedDescription, color: .red)
+                                } else {
+                                    Task {
+                                        await registerAfterVerification()
+                                        try? Auth.auth().signOut()
+                                    }
+                                }
+                                showVerificationSheet = false
+                                smsCode = ""
+                                verificationID = nil
+                            }
+                        }
+                    }
+                    .disabled(smsCode.isEmpty)
+                }
+                .padding(.horizontal)
+            }
+            .presentationDetents([.medium])
+        }
     }
 
     private func showMessage(_ text: String, color: Color) {
@@ -196,6 +237,36 @@ struct RegisterView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM/dd/yyyy"
         return formatter
+    }
+
+    private func registerAfterVerification() async {
+        let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let dob = dob else { return }
+        do {
+            if try await DatabaseManager.shared.userExists(trimmedUser) {
+                await MainActor.run { showMessage("Username already exists", color: .red) }
+            } else {
+                try await DatabaseManager.shared.insertUser(
+                    username: trimmedUser,
+                    password: password,
+                    firstName: trimmedFirst,
+                    lastName: trimmedLast,
+                    phoneNumber: trimmedPhone,
+                    dob: dateFormatter.string(from: dob),
+                    picture: pictureData ?? UIImage(named: "default-profile")?.pngData()
+                )
+                await MainActor.run {
+                    showMessage("User created", color: .green)
+                    onComplete?()
+                    dismiss()
+                }
+            }
+        } catch {
+            await MainActor.run { showMessage("Unable to create user", color: .red) }
+        }
     }
 
     private func formatPhoneNumber(_ number: String) -> String {
