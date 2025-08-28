@@ -62,6 +62,19 @@ final class DatabaseManager: ObservableObject {
             guard let snapshot = snapshot else { return }
 
             if snapshot.documents.isEmpty {
+                let fields: [String: Any] = [
+                    "id": 1,
+                    "keycode": "1234",
+                    "address": "",
+                    "welcome": "",
+                    "youtube": "",
+                    "kakao": "",
+                    "notification": "",
+                    "playwhen": [],
+                    "fee": 0,
+                    "venmo": ""
+                ]
+                self.db.collection("management").addDocument(data: fields)
                 let defaultKeyCode = KeyCode(
                     id: 1,
                     code: "1234",
@@ -591,6 +604,19 @@ final class DatabaseManager: ObservableObject {
                 } else {
                     let items = snapshot?.documents.compactMap { self.keyCodeFromDoc($0) } ?? []
                     if items.isEmpty {
+                        let fields: [String: Any] = [
+                            "id": 1,
+                            "keycode": "1234",
+                            "address": "",
+                            "welcome": "",
+                            "youtube": "",
+                            "kakao": "",
+                            "notification": "",
+                            "playwhen": [],
+                            "fee": 0,
+                            "venmo": ""
+                        ]
+                        self.db.collection("management").addDocument(data: fields)
                         let defaultKeyCode = KeyCode(
                             id: 1,
                             code: "1234",
