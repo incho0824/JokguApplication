@@ -62,10 +62,21 @@ final class DatabaseManager: ObservableObject {
             guard let snapshot = snapshot else { return }
 
             if snapshot.documents.isEmpty {
-                self.db.collection("management").document("default").setData([
-                    "id": 1,
-                    "keycode": "1234"
-                ])
+                let defaultKeyCode = KeyCode(
+                    id: 1,
+                    code: "1234",
+                    address: "",
+                    welcome: "",
+                    youtube: nil,
+                    kakao: nil,
+                    notification: "",
+                    playwhen: [],
+                    fee: 0,
+                    venmo: ""
+                )
+                DispatchQueue.main.async {
+                    self.management = defaultKeyCode
+                }
                 return
             }
 
@@ -575,10 +586,27 @@ final class DatabaseManager: ObservableObject {
                     continuation.resume(throwing: error)
                 } else {
                     let items = snapshot?.documents.compactMap { self.keyCodeFromDoc($0) } ?? []
-                    if let first = items.first {
-                        DispatchQueue.main.async { self.management = first }
+                    if items.isEmpty {
+                        let defaultKeyCode = KeyCode(
+                            id: 1,
+                            code: "1234",
+                            address: "",
+                            welcome: "",
+                            youtube: nil,
+                            kakao: nil,
+                            notification: "",
+                            playwhen: [],
+                            fee: 0,
+                            venmo: ""
+                        )
+                        DispatchQueue.main.async { self.management = defaultKeyCode }
+                        continuation.resume(returning: [defaultKeyCode])
+                    } else {
+                        if let first = items.first {
+                            DispatchQueue.main.async { self.management = first }
+                        }
+                        continuation.resume(returning: items)
                     }
-                    continuation.resume(returning: items)
                 }
             }
         }
@@ -589,7 +617,7 @@ final class DatabaseManager: ObservableObject {
             return management.code
         }
         let items = try await fetchManagementData()
-        return items.first?.code
+        return items.first?.code ?? "1234"
     }
 
     func updateManagement(id: Int, code: String, address: String, welcome: String, youtube: URL?, kakao: URL?, notification: String, playwhen: [String], fee: Int, venmo: String) {
