@@ -178,24 +178,12 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    func sendVerificationCode(to phoneNumber: String) async throws -> String {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-            PhoneAuthProvider.provider().verifyPhoneNumber(phoneNumber, uiDelegate: nil) { verificationID, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else if let verificationID = verificationID {
-                    continuation.resume(returning: verificationID)
-                } else {
-                    continuation.resume(throwing: NSError(domain: "PhoneAuth", code: 0))
-                }
-            }
-        }
-    }
+    func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
+        let upperUsername = username.uppercased()
+        guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
 
-    func signIn(with verificationID: String, smsCode: String) async throws {
-        let credential = PhoneAuthProvider.provider().credential(withVerificationID: verificationID, verificationCode: smsCode)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            Auth.auth().signIn(with: credential) { _, error in
+            Auth.auth().createUser(withEmail: upperUsername + "@example.com", password: password) { _, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
@@ -203,11 +191,7 @@ final class DatabaseManager: ObservableObject {
                 }
             }
         }
-    }
-
-    func insertUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
-        let upperUsername = username.uppercased()
-        guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
+        try? Auth.auth().signOut()
 
         let counterRef = db.collection("counters").document("member")
         // Ensure the counter document exists before running the transaction
@@ -304,6 +288,35 @@ final class DatabaseManager: ObservableObject {
         memberUsernameRefCache[upperUsername] = ref
     }
 
+    func validateUser(username: String, password: String) async throws -> Int? {
+        let key = username.uppercased()
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            Auth.auth().signIn(withEmail: key + "@example.com", password: password) { _, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
+        }
+        if let ref = try await memberDocument(username: key) {
+            let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
+                ref.getDocument { doc, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else if let doc = doc {
+                        continuation.resume(returning: doc)
+                    } else {
+                        continuation.resume(throwing: NSError(domain: "NotFound", code: 0))
+                    }
+                }
+            }
+            if let data = doc.data() {
+                return data["permit"] as? Int
+            }
+        }
+        return nil
+    }
 
     func fetchMembers() async throws -> [Member] {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Member], Error>) in
@@ -465,12 +478,19 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    func updateMemberUsername(id: Int, username: String) async throws {
+    func updateMemberCredentials(id: Int, username: String, password: String) async throws {
         let upper = username.uppercased()
-        try await updateMember(id: id, fields: ["username": upper])
-        if let ref = memberRefCache[id] {
-            memberUsernameRefCache[upper] = ref
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            Auth.auth().createUser(withEmail: upper + "@example.com", password: password) { _, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ())
+                }
+            }
         }
+        try? Auth.auth().signOut()
+        try await updateMember(id: id, fields: ["username": upper])
     }
 
     func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
