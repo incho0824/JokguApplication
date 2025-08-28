@@ -5,12 +5,10 @@ import FirebaseAuth
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    private var authListener: AuthStateDidChangeListenerHandle?
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
-        if Auth.auth().currentUser == nil {
-            Auth.auth().signInAnonymously(completion: nil)
-        }
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .alert, .sound]) { _, _ in
             UNUserNotificationCenter.current().getNotificationSettings { settings in
@@ -24,12 +22,18 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
                 }
             }
         }
-        application.registerForRemoteNotifications()
+        authListener = Auth.auth().addStateDidChangeListener { _, user in
+            guard user != nil else { return }
+            DispatchQueue.main.async {
+                application.registerForRemoteNotifications()
+            }
+        }
         return true
     }
 
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        guard Auth.auth().currentUser != nil else { return }
         Auth.auth().setAPNSToken(deviceToken, type: .sandbox)
         Messaging.messaging().apnsToken = deviceToken
     }
