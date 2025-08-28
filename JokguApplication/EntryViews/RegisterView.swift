@@ -138,7 +138,15 @@ struct RegisterView: View {
                             showMessage("Username must contain letters and numbers only", color: .red)
                         } else {
                             let digits = trimmedPhone.filter { $0.isNumber }
-                            let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
+                            let phone: String
+                            if digits.count == 10 {
+                                phone = "+1" + digits
+                            } else if digits.count == 11 && digits.hasPrefix("1") {
+                                phone = "+" + digits
+                            } else {
+                                showMessage("Invalid phone number", color: .red)
+                                return
+                            }
                             isSendingCode = true
                             Auth.auth().settings?.isAppVerificationDisabledForTesting = true
                             PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
