@@ -11,17 +11,16 @@ struct LoginView: View {
     @State private var loginFailed: Bool = false
     @State private var showKeyCodePrompt: Bool = false
     @State private var keyCodeInput: String = ""
+    @State private var showMemberVerifyView: Bool = false
     @State private var showAddressPrompt: Bool = false
+    @State private var showRecoveryPrompt: Bool = false
+    @State private var recoveryPhoneNumber: String = ""
+    @State private var recoveryCodeInput: String = ""
+    @State private var recoveryVerificationID: String? = nil
+    @State private var recoveryMember: Member? = nil
+    @State private var isSendingRecoveryCode = false
+    @State private var recoveryError: String? = nil
     @State private var canUseBiometrics = false
-
-    @State private var showPhoneAuthSheet: Bool = false
-    @State private var phoneNumber: String = ""
-    @State private var verificationID: String? = nil
-    @State private var smsCode: String = ""
-    @State private var isSendingCode = false
-    @State private var phoneAuthError: String? = nil
-    @State private var existingMember: Member? = nil
-    @State private var showRegisterView: Bool = false
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var databaseManager: DatabaseManager
 
@@ -121,6 +120,10 @@ struct LoginView: View {
                     showKeyCodePrompt = true
                 }
 
+                Button("Forgot Password?") {
+                    showRecoveryPrompt = true
+                }
+
                 if loginFailed {
                     Text("Authentication failed")
                         .foregroundColor(.red)
@@ -176,7 +179,7 @@ struct LoginView: View {
                         if keyCodeInput == storedCode {
                             showKeyCodePrompt = false
                             keyCodeInput = ""
-                            showPhoneAuthSheet = true
+                            showMemberVerifyView = true
                         }
                     }
                 }
@@ -184,101 +187,96 @@ struct LoginView: View {
             }
             .padding()
         }
-        .sheet(isPresented: $showPhoneAuthSheet) {
+        .sheet(isPresented: $showRecoveryPrompt) {
             VStack(spacing: 16) {
-                if verificationID == nil {
-                    TextField("Enter phone number", text: $phoneNumber)
+                if recoveryVerificationID == nil {
+                    TextField("Enter phone number", text: $recoveryPhoneNumber)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .keyboardType(.phonePad)
                         .padding(.horizontal)
 
                     Button("Send Code") {
-                        let digits = phoneNumber.filter { $0.isNumber }
+                        let digits = recoveryPhoneNumber.filter { $0.isNumber }
                         let phone: String
                         if digits.count == 10 {
                             phone = "+1" + digits
                         } else if digits.count == 11 {
                             phone = "+" + digits
                         } else {
-                            phoneAuthError = "Phone number must be 10 or 11 digits"
+                            recoveryError = "Phone number must be 10 or 11 digits"
                             return
                         }
-                        phoneNumber = phone
-                        isSendingCode = true
+                        // Store standardized phone number for later lookup
+                        recoveryPhoneNumber = phone
+                        isSendingRecoveryCode = true
                         PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
                             DispatchQueue.main.async {
-                                isSendingCode = false
+                                isSendingRecoveryCode = false
                                 if let id = id {
-                                    verificationID = id
+                                    recoveryVerificationID = id
                                 } else if let error = error {
-                                    phoneAuthError = error.localizedDescription
+                                    recoveryError = error.localizedDescription
                                 }
                             }
                         }
                     }
-                    .disabled(phoneNumber.isEmpty || isSendingCode)
+                    .disabled(recoveryPhoneNumber.isEmpty || isSendingRecoveryCode)
                 } else {
-                    TextField("Enter verification code", text: $smsCode)
+                    TextField("Enter verification code", text: $recoveryCodeInput)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .keyboardType(.numberPad)
                         .padding(.horizontal)
 
                     Button("Confirm") {
-                        guard let id = verificationID else { return }
-                        let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: smsCode)
+                        guard let id = recoveryVerificationID else { return }
+                        let credential = PhoneAuthProvider.provider().credential(withVerificationID: id, verificationCode: recoveryCodeInput)
                         Auth.auth().signIn(with: credential) { _, error in
                             DispatchQueue.main.async {
                                 if error == nil {
                                     Task {
-                                        if let uid = Auth.auth().currentUser?.uid {
-                                            if let member = try? await DatabaseManager.shared.fetchMemberByAuthID(uid) {
-                                                if member.syncd == 0 {
-                                                    existingMember = member
-                                                    showRegisterView = true
-                                                } else {
-                                                    phoneAuthError = "Account already exists for this phone number"
-                                                    try? Auth.auth().signOut()
-                                                }
-                                            } else {
-                                                existingMember = nil
-                                                showRegisterView = true
+                                        if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: recoveryPhoneNumber) {
+                                            await MainActor.run {
+                                                showRecoveryPrompt = false
+                                                recoveryPhoneNumber = ""
+                                                recoveryCodeInput = ""
+                                                recoveryVerificationID = nil
+                                                recoveryMember = member
+                                                try? Auth.auth().signOut()
+                                            }
+                                        } else {
+                                            await MainActor.run {
+                                                recoveryError = "No account found for this phone number"
+                                                recoveryVerificationID = nil
+                                                try? Auth.auth().signOut()
                                             }
                                         }
                                     }
                                 } else {
-                                    phoneAuthError = error?.localizedDescription
+                                    recoveryError = error?.localizedDescription
                                 }
-                                showPhoneAuthSheet = false
-                                smsCode = ""
-                                verificationID = nil
                             }
                         }
                     }
-                    .disabled(smsCode.isEmpty)
+                    .disabled(recoveryCodeInput.isEmpty)
                 }
 
                 Button("Cancel") {
-                    showPhoneAuthSheet = false
-                    phoneNumber = ""
-                    smsCode = ""
-                    verificationID = nil
+                    showRecoveryPrompt = false
+                    recoveryPhoneNumber = ""
+                    recoveryCodeInput = ""
+                    recoveryVerificationID = nil
                 }
             }
             .padding()
         }
-        .alert(phoneAuthError ?? "", isPresented: Binding(get: { phoneAuthError != nil }, set: { _ in phoneAuthError = nil })) {
+        .alert(recoveryError ?? "", isPresented: Binding(get: { recoveryError != nil }, set: { _ in recoveryError = nil })) {
             Button("OK", role: .cancel) { }
         }
-        .sheet(isPresented: $showRegisterView) {
-            if let member = existingMember {
-                RegisterView(member: member) {
-                    try? Auth.auth().signOut()
-                }
-            } else {
-                RegisterView() {
-                    try? Auth.auth().signOut()
-                }
-            }
+        .sheet(item: $recoveryMember) { member in
+            RegisterView(member: member)
+        }
+        .sheet(isPresented: $showMemberVerifyView) {
+            MemberVerificationView()
         }
     }
 
