@@ -8,9 +8,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         FirebaseApp.configure()
-        if Auth.auth().currentUser == nil {
-            Auth.auth().signInAnonymously(completion: nil)
-        }
+        // Anonymous authentication is disabled on initial run.
+        // Previously the app would create an anonymous user if none existed.
+        // Now, if no user is signed in, the app continues without creating one.
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .alert, .sound]) { _, _ in
             UNUserNotificationCenter.current().getNotificationSettings { settings in
