@@ -130,11 +130,13 @@ struct LoginView: View {
                     Spacer()
 
                     Button("Confirm") {
-                        let storedCode = databaseManager.management?.code ?? ""
-                        if keyCodeInput == storedCode {
-                            showKeyCodePrompt = false
-                            keyCodeInput = ""
-                            showMemberVerifyView = true
+                        Task {
+                            let storedCode = (try? await databaseManager.fetchKeyCode()) ?? "1234"
+                            if keyCodeInput == storedCode {
+                                showKeyCodePrompt = false
+                                keyCodeInput = ""
+                                showMemberVerifyView = true
+                            }
                         }
                     }
                 }
