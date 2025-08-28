@@ -154,9 +154,17 @@ struct LoginView: View {
         }
     }
 
+    private func formatForAuth(_ number: String) -> String {
+        let digits = number.filter { $0.isNumber }
+        if digits.count == 11 && digits.hasPrefix("1") {
+            return "+" + digits
+        } else {
+            return "+1" + String(digits.prefix(10))
+        }
+    }
+
     private func sendCode() {
-        let digits = phoneNumber.filter { $0.isNumber }
-        let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
+        let phone = formatForAuth(phoneNumber)
         isSendingCode = true
         PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
             DispatchQueue.main.async {
@@ -177,7 +185,8 @@ struct LoginView: View {
             DispatchQueue.main.async {
                 if error == nil {
                     Task {
-                        if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: phoneNumber), member.syncd == 1 {
+                        let digits = phoneNumber.filter { $0.isNumber }
+                        if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: digits), member.syncd == 1 {
                             await MainActor.run {
                                 loggedInUser = member.username
                                 userPermit = member.permit
