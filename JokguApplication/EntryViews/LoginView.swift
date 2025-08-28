@@ -14,6 +14,7 @@ struct LoginView: View {
     @State private var showMemberVerifyView: Bool = false
     @State private var showAddressPrompt: Bool = false
     @State private var showRecoveryPrompt: Bool = false
+    @State private var recoveryUsername: String = ""
     @State private var recoveryPhoneNumber: String = ""
     @State private var recoveryCodeInput: String = ""
     @State private var recoveryVerificationID: String? = nil
@@ -190,6 +191,12 @@ struct LoginView: View {
         .sheet(isPresented: $showRecoveryPrompt) {
             VStack(spacing: 16) {
                 if recoveryVerificationID == nil {
+                    TextField("Enter username", text: $recoveryUsername)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .padding(.horizontal)
+
                     TextField("Enter phone number", text: $recoveryPhoneNumber)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .keyboardType(.phonePad)
@@ -220,7 +227,7 @@ struct LoginView: View {
                             }
                         }
                     }
-                    .disabled(recoveryPhoneNumber.isEmpty || isSendingRecoveryCode)
+                    .disabled(recoveryUsername.isEmpty || recoveryPhoneNumber.isEmpty || isSendingRecoveryCode)
                 } else {
                     TextField("Enter verification code", text: $recoveryCodeInput)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
@@ -234,9 +241,10 @@ struct LoginView: View {
                             DispatchQueue.main.async {
                                 if error == nil {
                                     Task {
-                                        if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: recoveryPhoneNumber) {
+                                        if let member = try? await DatabaseManager.shared.fetchUser(username: recoveryUsername) {
                                             await MainActor.run {
                                                 showRecoveryPrompt = false
+                                                recoveryUsername = ""
                                                 recoveryPhoneNumber = ""
                                                 recoveryCodeInput = ""
                                                 recoveryVerificationID = nil
@@ -245,7 +253,7 @@ struct LoginView: View {
                                             }
                                         } else {
                                             await MainActor.run {
-                                                recoveryError = "No account found for this phone number"
+                                                recoveryError = "No account found for this username"
                                                 recoveryVerificationID = nil
                                                 try? Auth.auth().signOut()
                                             }
@@ -262,6 +270,7 @@ struct LoginView: View {
 
                 Button("Cancel") {
                     showRecoveryPrompt = false
+                    recoveryUsername = ""
                     recoveryPhoneNumber = ""
                     recoveryCodeInput = ""
                     recoveryVerificationID = nil

@@ -11,6 +11,7 @@ struct MemberVerificationView: View {
     @State private var verificationID: String? = nil
     @State private var isSendingCode = false
     @State private var errorMessage: String? = nil
+    @State private var phoneNumber: String = ""
 
     var body: some View {
         NavigationView {
@@ -27,6 +28,11 @@ struct MemberVerificationView: View {
                         selectedMember = member
                     }
                 }
+                TextField("Phone Number", text: $phoneNumber)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.phonePad)
+                    .padding()
+
                 HStack {
                     Button("New") {
                         selectedMember = nil
@@ -35,9 +41,17 @@ struct MemberVerificationView: View {
                     Spacer()
                     Button("Verify") {
                         if let member = selectedMember {
+                            let digits = phoneNumber.filter { $0.isNumber }
+                            let phone: String
+                            if digits.count == 10 {
+                                phone = "+1" + digits
+                            } else if digits.count == 11 {
+                                phone = "+" + digits
+                            } else {
+                                errorMessage = "Phone number must be 10 or 11 digits"
+                                return
+                            }
                             isSendingCode = true
-                            let digits = member.phoneNumber.filter { $0.isNumber }
-                            let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
                             PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
                                 DispatchQueue.main.async {
                                     isSendingCode = false
@@ -51,7 +65,7 @@ struct MemberVerificationView: View {
                             }
                         }
                     }
-                    .disabled(selectedMember == nil || isSendingCode)
+                    .disabled(selectedMember == nil || phoneNumber.isEmpty || isSendingCode)
                 }
                 .padding()
             }
