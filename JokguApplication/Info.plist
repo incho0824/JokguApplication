@@ -2,17 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-        <key>UIBackgroundModes</key>
-        <array>
-                <string>remote-notification</string>
-        </array>
-        <key>LSApplicationQueriesSchemes</key>
-        <array>
-                <string>venmo</string>
-        </array>
-        <key>NSCameraUsageDescription</key>
-        <string>Camera access is required to take profile pictures.</string>
-        <key>NSPhotoLibraryUsageDescription</key>
-        <string>Photo library access is required to choose profile pictures.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.828874626802-52grfp7ivrna3tkh8bd5c0uphjc3ihu6</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>venmo</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
