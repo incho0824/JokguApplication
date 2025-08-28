@@ -3,6 +3,7 @@ import FirebaseAuth
 
 struct MemberVerificationView: View {
     @Environment(\.dismiss) var dismiss
+    var onVerificationSuccess: (() -> Void)? = nil
     @State private var members: [Member] = []
     @State private var selectedMember: Member? = nil
     @State private var showRegister = false
@@ -11,7 +12,6 @@ struct MemberVerificationView: View {
     @State private var verificationID: String? = nil
     @State private var isSendingCode = false
     @State private var errorMessage: String? = nil
-    @State private var successMessage: String? = nil
 
     var body: some View {
         NavigationView {
@@ -106,11 +106,12 @@ struct MemberVerificationView: View {
                                         do {
                                             try await DatabaseManager.shared.updateSyncd(id: member.id, syncd: 1)
                                             await MainActor.run {
-                                                successMessage = "User's identification has been verified"
                                                 verifyingMember = nil
                                                 inputCode = ""
                                                 verificationID = nil
                                                 try? Auth.auth().signOut()
+                                                onVerificationSuccess?()
+                                                dismiss()
                                             }
                                         } catch {
                                             await MainActor.run { errorMessage = error.localizedDescription }
@@ -130,9 +131,6 @@ struct MemberVerificationView: View {
         }
         .alert(errorMessage ?? "", isPresented: Binding(get: { errorMessage != nil }, set: { _ in errorMessage = nil })) {
             Button("OK", role: .cancel) { }
-        }
-        .alert(successMessage ?? "", isPresented: Binding(get: { successMessage != nil }, set: { _ in successMessage = nil })) {
-            Button("OK") { dismiss() }
         }
     }
 }

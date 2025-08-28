@@ -10,6 +10,7 @@ struct LoginView: View {
     @State private var verificationID: String? = nil
     @State private var isSendingCode = false
     @State private var errorMessage: String? = nil
+    @State private var successMessage: String? = nil
     @State private var showKeyCodePrompt: Bool = false
     @State private var keyCodeInput: String = ""
     @State private var showMemberVerifyView: Bool = false
@@ -86,6 +87,10 @@ struct LoginView: View {
                     Text(errorMessage)
                         .foregroundColor(.red)
                 }
+                if let successMessage = successMessage {
+                    Text(successMessage)
+                        .foregroundColor(.green)
+                }
             }
             .frame(maxHeight: .infinity, alignment: .top)
             .padding(.horizontal)
@@ -143,7 +148,9 @@ struct LoginView: View {
             .padding()
         }
         .sheet(isPresented: $showMemberVerifyView) {
-            MemberVerificationView()
+            MemberVerificationView(onVerificationSuccess: {
+                successMessage = "Registration completed"
+            })
         }
     }
 
