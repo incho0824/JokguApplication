@@ -22,6 +22,7 @@ struct Member: Identifiable {
     var username: String
     var firstName: String
     var lastName: String
+    var phoneNumber: String
     var dob: String
     var pictureURL: String?
     var attendance: Int
@@ -30,6 +31,7 @@ struct Member: Identifiable {
     var today: Int
     var syncd: Int
     var orderIndex: Int
+    var recovery: Int
 }
 
 struct UserFields {
@@ -94,6 +96,7 @@ final class DatabaseManager: ObservableObject {
         let username = data["username"] as? String ?? ""
         let firstName = data["firstname"] as? String ?? ""
         let lastName = data["lastname"] as? String ?? ""
+        let phoneNumber = data["phonenumber"] as? String ?? ""
         let dob = data["dob"] as? String ?? ""
         let pictureURL = data["picture"] as? String
         let attendance = data["attendance"] as? Int ?? 0
@@ -102,9 +105,10 @@ final class DatabaseManager: ObservableObject {
         let today = data["today"] as? Int ?? 0
         let syncd = data["syncd"] as? Int ?? 0
         let orderIndex = data["orderIndex"] as? Int ?? 0
+        let recovery = data["recovery"] as? Int ?? 0
         memberRefCache[id] = doc.reference
         memberUsernameRefCache[username.uppercased()] = doc.reference
-        return Member(id: id, username: username, firstName: firstName, lastName: lastName, dob: dob, pictureURL: pictureURL, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex)
+        return Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, pictureURL: pictureURL, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery)
     }
 
     private func keyCodeFromDoc(_ doc: DocumentSnapshot) -> KeyCode? {
@@ -185,7 +189,7 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    func insertUser(username: String, password: String, firstName: String, lastName: String, dob: String, picture: Data?) async throws {
+    func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
         let upperUsername = username.uppercased()
         guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
 
@@ -241,13 +245,15 @@ final class DatabaseManager: ObservableObject {
             "salt": salt,
             "firstname": firstName,
             "lastname": lastName,
+            "phonenumber": phoneNumber,
             "dob": dob,
             "attendance": 0,
             "permit": 0,
             "guest": 0,
             "today": 0,
             "syncd": 1,
-            "orderIndex": newId
+            "orderIndex": newId,
+            "recovery": Int.random(in: 100000...999999)
         ]
         if let picture = picture {
             let storageRef = Storage.storage().reference().child("profile_pictures/\(upperUsername).jpg")
@@ -371,6 +377,34 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
+    func fetchMemberByRecovery(code: Int) async throws -> Member? {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Member?, Error>) in
+            db.collection("member").whereField("recovery", isEqualTo: code).limit(to: 1).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let doc = snapshot?.documents.first {
+                    continuation.resume(returning: self.memberFromDoc(doc))
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
+    func fetchMemberByPhoneNumber(phoneNumber: String) async throws -> Member? {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Member?, Error>) in
+            db.collection("member").whereField("phonenumber", isEqualTo: phoneNumber).limit(to: 1).getDocuments { snapshot, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let doc = snapshot?.documents.first {
+                    continuation.resume(returning: self.memberFromDoc(doc))
+                } else {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
+
     func fetchUnsyncedMembers() async throws -> [Member] {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Member], Error>) in
             db.collection("member").whereField("syncd", isEqualTo: 0).getDocuments { snapshot, error in
@@ -446,10 +480,11 @@ final class DatabaseManager: ObservableObject {
         try await updateMember(id: id, fields: ["username": username.uppercased(), "passwordHash": hashPassword(password, salt: salt), "salt": salt])
     }
 
-    func updateUser(username: String, firstName: String, lastName: String, dob: String, picture: Data?) async throws {
+    func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
         var fields: [String: Any] = [
             "firstname": firstName,
             "lastname": lastName,
+            "phonenumber": phoneNumber,
             "dob": dob
         ]
         if let picture = picture {

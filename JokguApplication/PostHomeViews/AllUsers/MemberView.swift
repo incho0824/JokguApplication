@@ -97,7 +97,11 @@ struct MemberView: View {
                         VStack(alignment: .leading) {
                             Text("\(member.lastName) \(member.firstName)")
                             Text("DOB: \(member.dob)")
+                            Text("Phone: \(member.phoneNumber)")
                             Text("Attendance: \(member.attendance)")
+                            if userPermit == 2 {
+                                Text("Recovery: \(member.recovery)")
+                            }
                             if userPermit == 9 || userPermit == 2 {
                                 Toggle("Guest", isOn: Binding(
                                     get: { members[index].guest == 1 },

@@ -27,7 +27,7 @@ struct RegisterView: View {
         self.onComplete = onComplete
         _firstName = State(initialValue: member?.firstName ?? "")
         _lastName = State(initialValue: member?.lastName ?? "")
-        _phoneNumber = State(initialValue: "")
+        _phoneNumber = State(initialValue: member?.phoneNumber ?? "")
         if let dobString = member?.dob {
             let formatter = DateFormatter()
             formatter.dateFormat = "MM/dd/yyyy"
@@ -252,6 +252,7 @@ struct RegisterView: View {
         let trimmedUser = username.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let dob = dob else { return }
         do {
             if try await DatabaseManager.shared.userExists(trimmedUser) {
@@ -262,6 +263,7 @@ struct RegisterView: View {
                     password: password,
                     firstName: trimmedFirst,
                     lastName: trimmedLast,
+                    phoneNumber: trimmedPhone,
                     dob: dateFormatter.string(from: dob),
                     picture: pictureData ?? UIImage(named: "default-profile")?.pngData()
                 )
