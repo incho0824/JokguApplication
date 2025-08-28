@@ -6,7 +6,6 @@ struct ProfileView: View {
     let username: String
     @State private var firstName: String = ""
     @State private var lastName: String = ""
-    @State private var phoneNumber: String = ""
     @State private var dob: Date? = nil
     @State private var currentPassword: String = ""
     @State private var newPassword: String = ""
@@ -83,14 +82,6 @@ struct ProfileView: View {
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .padding(.horizontal)
 
-                    TextField("Phone Number", text: $phoneNumber)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.phonePad)
-                        .padding(.horizontal)
-                        .onChange(of: phoneNumber) { _, newValue in
-                            phoneNumber = formatPhoneNumber(newValue)
-                        }
-
                     DatePicker("Date of Birth", selection: Binding(
                         get: { dob ?? Date() },
                         set: { dob = $0 }
@@ -102,14 +93,12 @@ struct ProfileView: View {
                     Button("Save Info") {
                         let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                        if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || dob == nil {
+                        if trimmedFirst.isEmpty || trimmedLast.isEmpty || dob == nil {
                             showMessage("All fields are required", color: .red)
                         } else {
                             Task {
                                 do {
-                                    try await DatabaseManager.shared.updateUser(username: username, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData)
+                                    try await DatabaseManager.shared.updateUser(username: username, firstName: trimmedFirst, lastName: trimmedLast, dob: dateFormatter.string(from: dob!), picture: pictureData)
                                     await MainActor.run {
                                         showMessage("Information updated", color: .green)
                                     }
@@ -201,7 +190,6 @@ struct ProfileView: View {
                         await MainActor.run {
                             firstName = member.firstName
                             lastName = member.lastName
-                            phoneNumber = member.phoneNumber
                             dob = dateFormatter.date(from: member.dob)
                             pictureURL = member.pictureURL
                         }
@@ -225,23 +213,6 @@ struct ProfileView: View {
         return formatter
     }
 
-    private func formatPhoneNumber(_ number: String) -> String {
-        let digits = number.filter { $0.isNumber }
-        let limited = String(digits.prefix(10))
-        let area = limited.prefix(3)
-        let middle = limited.dropFirst(3).prefix(3)
-        let last = limited.dropFirst(6)
-        var result = ""
-        if !area.isEmpty {
-            result += "(" + area
-            if area.count == 3 { result += ")" }
-        }
-        result += middle
-        if !last.isEmpty {
-            result += "-" + last
-        }
-        return result
-    }
 }
 
 #Preview {
