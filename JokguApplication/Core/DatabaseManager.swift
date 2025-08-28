@@ -451,6 +451,10 @@ final class DatabaseManager: ObservableObject {
         try await updateMember(id: id, fields: ["permit": permit])
     }
 
+    func updateSyncd(id: Int, syncd: Int) async throws {
+        try await updateMember(id: id, fields: ["syncd": syncd])
+    }
+
     func updateOrder(id: Int, order: Int) async throws {
         try await updateMember(id: id, fields: ["orderIndex": order])
     }
