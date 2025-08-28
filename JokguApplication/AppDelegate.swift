@@ -34,6 +34,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         Messaging.messaging().apnsToken = deviceToken
     }
 
+    func application(_ application: UIApplication,
+                     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if Auth.auth().canHandleNotification(userInfo) {
+            completionHandler(.noData)
+            return
+        }
+
+        completionHandler(.noData)
+    }
+
     private func presentNotificationsDisabledAlert() {
         DispatchQueue.main.async {
             let alert = UIAlertController(title: "Notifications Disabled",
