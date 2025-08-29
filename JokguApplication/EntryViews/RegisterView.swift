@@ -153,11 +153,6 @@ struct RegisterView: View {
             await DatabaseManager.shared.createTablesIfNeeded(for: username)
             await MainActor.run {
                 showMessage("Registration Complete", color: .green)
-                if let member = member {
-                    loggedInUser = member.username
-                    userPermit = member.permit
-                }
-                isLoggedIn = true
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 onComplete?()

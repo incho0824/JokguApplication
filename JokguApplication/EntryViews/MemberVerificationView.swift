@@ -127,9 +127,6 @@ struct MemberVerificationView: View {
                                                 verifyingMember = nil
                                                 inputCode = ""
                                                 verificationID = nil
-                                                loggedInUser = member.username
-                                                userPermit = member.permit
-                                                isLoggedIn = true
                                             }
                                             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                                                 dismiss()
