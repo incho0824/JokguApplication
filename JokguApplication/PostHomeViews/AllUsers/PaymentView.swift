@@ -5,7 +5,7 @@ struct PaymentView: View {
     @Environment(\.dismiss) var dismiss
     @Environment(\.openURL) private var openURL
     
-    let username: String
+    let phoneNumber: String
     @State private var fields: [Int] = Array(repeating: 0, count: 12)
     @State private var fee: Int = 0
     @State private var selectedIndices: Set<Int> = []
@@ -111,7 +111,7 @@ struct PaymentView: View {
 
     private func loadData() {
         Task {
-            if let fetched = await DatabaseManager.shared.fetchUserFields(username: username) {
+            if let fetched = await DatabaseManager.shared.fetchUserFields(phoneNumber: phoneNumber) {
                 var filled = Array(repeating: 0, count: 12)
                 for i in 0..<min(fetched.count, 12) {
                     filled[i] = fetched[i]
@@ -133,7 +133,7 @@ struct PaymentView: View {
 
         let handle = normalizeHandle(venmoAccount)
         let monthsSummary = monthNoteSummary()
-        let base = "Jokgu fee for \(username)"
+        let base = "Jokgu fee for \(phoneNumber)"
         let note = monthsSummary.isEmpty ? base : "\(base) — \(monthsSummary)"
 
         guard let appURL = makeVenmoAppURL(recipient: handle, amount: dollars, note: note) else {
@@ -214,5 +214,5 @@ struct PaymentView: View {
 }
 
 #Preview {
-    PaymentView(username: "USER")
+    PaymentView(phoneNumber: "USER")
 }

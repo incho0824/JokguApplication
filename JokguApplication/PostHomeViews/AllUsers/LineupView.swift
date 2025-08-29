@@ -2,13 +2,13 @@ import SwiftUI
 
 struct LineupView: View {
     @Environment(\.dismiss) var dismiss
-    var username: String
+    var phoneNumber: String
     @State private var members: [Member] = []
     @State private var showTodayPrompt = false
     @State private var isPlayDay = false
     private let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
     private var userInLineup: Bool {
-        members.contains { $0.username.uppercased() == username.uppercased() }
+        members.contains { $0.phoneNumber.uppercased() == phoneNumber.uppercased() }
     }
 
     var body: some View {
@@ -90,7 +90,7 @@ struct LineupView: View {
                     checkPlayDay()
                 }
             }
-            .todayPrompt(isPresented: $showTodayPrompt, username: username) {
+            .todayPrompt(isPresented: $showTodayPrompt, phoneNumber: phoneNumber) {
                 Task {
                     if let fetched = try? await DatabaseManager.shared.fetchTodayMembers() {
                         await MainActor.run { members = fetched }
@@ -120,5 +120,5 @@ private extension LineupView {
 }
 
 #Preview {
-    LineupView(username: "USER")
+    LineupView(phoneNumber: "USER")
 }

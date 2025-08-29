@@ -15,7 +15,7 @@
 # query ListUsers @auth(level: NO_ACCESS) {
 #   users {
 #     id
-#     username
+#     phoneNumber
 #   }
 # }
 
@@ -24,7 +24,7 @@
 # query ListUserReviews @auth(level: USER) {
 #   user(key: { id_expr: "auth.uid" }) {
 #     id
-#     username
+#     phoneNumber
 #     # <field>_on_<foreign_key_field> makes it easy to grab info from another table
 #     # Here, we use it to grab all the reviews written by the user.
 #     reviews: reviews_on_user {
@@ -57,7 +57,7 @@
 #       rating
 #       user {
 #         id
-#         username
+#         phoneNumber
 #       }
 #     }
 #   }

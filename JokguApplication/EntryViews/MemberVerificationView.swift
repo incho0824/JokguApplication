@@ -121,9 +121,9 @@ struct MemberVerificationView: View {
                                     Task {
                                         do {
                                             try await DatabaseManager.shared.updateSyncd(id: member.id, syncd: 1)
-                                            await DatabaseManager.shared.createTablesIfNeeded(for: member.username)
+                                            await DatabaseManager.shared.createTablesIfNeeded(for: member.phoneNumber)
                                             await MainActor.run {
-                                                loggedInUser = member.username
+                                                loggedInUser = member.phoneNumber
                                                 userPermit = member.permit
                                                 isLoggedIn = true
                                                 showMessage("Registration Complete", color: .green)

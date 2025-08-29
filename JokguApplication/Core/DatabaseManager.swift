@@ -2,7 +2,6 @@ import Foundation
 import FirebaseCore
 import FirebaseFirestore
 import FirebaseStorage
-import CryptoKit
 import Combine
 import FirebaseAuth
 
@@ -21,7 +20,6 @@ struct KeyCode: Identifiable {
 
 struct Member: Identifiable {
     let id: Int
-    var username: String
     var firstName: String
     var lastName: String
     var phoneNumber: String
@@ -33,11 +31,10 @@ struct Member: Identifiable {
     var today: Int
     var syncd: Int
     var orderIndex: Int
-    var recovery: Int
 }
 
 struct UserFields {
-    let username: String
+    let phoneNumber: String
     var values: [Int]
 }
 
@@ -47,7 +44,7 @@ final class DatabaseManager: ObservableObject {
     @Published private(set) var management: KeyCode?
     private var managementListener: ListenerRegistration?
     private var memberRefCache: [Int: DocumentReference] = [:]
-    private var memberUsernameRefCache: [String: DocumentReference] = [:]
+    private var memberPhoneRefCache: [String: DocumentReference] = [:]
 
     private var isAuthenticated: Bool {
         Auth.auth().currentUser != nil
@@ -118,22 +115,9 @@ final class DatabaseManager: ObservableObject {
     }
 
     // MARK: - Helpers
-    private func generateSalt() -> String {
-        var rng = SystemRandomNumberGenerator()
-        let bytes = (0..<16).map { _ in UInt8.random(in: 0...255, using: &rng) }
-        return Data(bytes).base64EncodedString()
-    }
-
-    private func hashPassword(_ password: String, salt: String) -> String {
-        let data = Data((salt + password).utf8)
-        let hash = SHA256.hash(data: data)
-        return hash.compactMap { String(format: "%02x", $0) }.joined()
-    }
-
     private func memberFromDoc(_ doc: DocumentSnapshot) -> Member? {
         guard let data = doc.data() else { return nil }
         let id = data["id"] as? Int ?? 0
-        let username = data["username"] as? String ?? ""
         let firstName = data["firstname"] as? String ?? ""
         let lastName = data["lastname"] as? String ?? ""
         let phoneNumber = data["phonenumber"] as? String ?? ""
@@ -145,10 +129,11 @@ final class DatabaseManager: ObservableObject {
         let today = data["today"] as? Int ?? 0
         let syncd = data["syncd"] as? Int ?? 0
         let orderIndex = data["orderIndex"] as? Int ?? 0
-        let recovery = data["recovery"] as? Int ?? 0
         memberRefCache[id] = doc.reference
-        memberUsernameRefCache[username.uppercased()] = doc.reference
-        return Member(id: id, username: username, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, pictureURL: pictureURL, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex, recovery: recovery)
+        if !phoneNumber.isEmpty {
+            memberPhoneRefCache[phoneNumber] = doc.reference
+        }
+        return Member(id: id, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, pictureURL: pictureURL, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex)
     }
 
     private func keyCodeFromDoc(_ doc: DocumentSnapshot) -> KeyCode? {
@@ -178,8 +163,8 @@ final class DatabaseManager: ObservableObject {
                     let doc = snapshot?.documents.first
                     if let doc = doc {
                         self.memberRefCache[id] = doc.reference
-                        if let username = doc.data()["username"] as? String {
-                            self.memberUsernameRefCache[username.uppercased()] = doc.reference
+                        if let phone = doc.data()["phonenumber"] as? String {
+                            self.memberPhoneRefCache[phone] = doc.reference
                         }
                     }
                     continuation.resume(returning: snapshot?.documents.first?.reference)
@@ -188,20 +173,19 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    private func memberDocument(username: String) async throws -> DocumentReference? {
-        let key = username.uppercased()
-        if let cached = memberUsernameRefCache[key] {
+    private func memberDocument(phoneNumber: String) async throws -> DocumentReference? {
+        if let cached = memberPhoneRefCache[phoneNumber] {
             return cached
         }
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentReference?, Error>) in
-            db.collection("member").whereField("username", isEqualTo: key).limit(to: 1).getDocuments { snapshot, error in
+            db.collection("member").whereField("phonenumber", isEqualTo: phoneNumber).limit(to: 1).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
                     let doc = snapshot?.documents.first
                     if let doc = doc, let id = doc.data()["id"] as? Int {
                         self.memberRefCache[id] = doc.reference
-                        self.memberUsernameRefCache[key] = doc.reference
+                        self.memberPhoneRefCache[phoneNumber] = doc.reference
                     }
                     continuation.resume(returning: doc?.reference)
                 }
@@ -210,18 +194,17 @@ final class DatabaseManager: ObservableObject {
     }
 
     // MARK: - Authentication & Users
-    func userExists(_ username: String) async throws -> Bool {
-        let key = username.uppercased()
-        if memberUsernameRefCache[key] != nil { return true }
+    func userExists(_ phoneNumber: String) async throws -> Bool {
+        if memberPhoneRefCache[phoneNumber] != nil { return true }
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
-            db.collection("member").whereField("username", isEqualTo: key).getDocuments { snapshot, error in
+            db.collection("member").whereField("phonenumber", isEqualTo: phoneNumber).getDocuments { snapshot, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
                     let exists = snapshot?.documents.isEmpty == false
                     if exists, let doc = snapshot?.documents.first, let id = doc.data()["id"] as? Int {
                         self.memberRefCache[id] = doc.reference
-                        self.memberUsernameRefCache[key] = doc.reference
+                        self.memberPhoneRefCache[phoneNumber] = doc.reference
                     }
                     continuation.resume(returning: exists)
                 }
@@ -229,10 +212,9 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    func insertUser(username: String, password: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
+    func insertUser(firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
         try requireAuth()
-        let upperUsername = username.uppercased()
-        guard try await !userExists(upperUsername) else { throw NSError(domain: "UserExists", code: 1) }
+        guard try await !userExists(phoneNumber) else { throw NSError(domain: "UserExists", code: 1) }
 
         let counterRef = db.collection("counters").document("member")
         // Ensure the counter document exists before running the transaction
@@ -278,12 +260,8 @@ final class DatabaseManager: ObservableObject {
             }
         }
 
-        let salt = generateSalt()
         var data: [String: Any] = [
             "id": newId,
-            "username": upperUsername,
-            "passwordHash": hashPassword(password, salt: salt),
-            "salt": salt,
             "firstname": firstName,
             "lastname": lastName,
             "phonenumber": phoneNumber,
@@ -293,11 +271,10 @@ final class DatabaseManager: ObservableObject {
             "guest": 0,
             "today": 0,
             "syncd": 1,
-            "orderIndex": newId,
-            "recovery": Int.random(in: 100000...999999)
+            "orderIndex": newId
         ]
         if let picture = picture {
-            let storageRef = Storage.storage().reference().child("profile_pictures/\(upperUsername).jpg")
+            let storageRef = Storage.storage().reference().child("profile_pictures/\(phoneNumber).jpg")
             let metadata = StorageMetadata()
             metadata.contentType = "image/jpeg"
             let urlString: String = try await withCheckedThrowingContinuation { continuation in
@@ -329,31 +306,7 @@ final class DatabaseManager: ObservableObject {
             }
         }
         memberRefCache[newId] = ref
-        memberUsernameRefCache[upperUsername] = ref
-    }
-
-    func validateUser(username: String, password: String) async throws -> Int? {
-        let key = username.uppercased()
-        if let ref = try await memberDocument(username: key) {
-            let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
-                ref.getDocument { doc, error in
-                    if let error = error {
-                        continuation.resume(throwing: error)
-                    } else if let doc = doc {
-                        continuation.resume(returning: doc)
-                    } else {
-                        continuation.resume(throwing: NSError(domain: "NotFound", code: 0))
-                    }
-                }
-            }
-            if let data = doc.data(),
-               let salt = data["salt"] as? String,
-               let stored = data["passwordHash"] as? String,
-               hashPassword(password, salt: salt) == stored {
-                return data["permit"] as? Int
-            }
-        }
-        return nil
+        memberPhoneRefCache[phoneNumber] = ref
     }
 
     func fetchMembers() async throws -> [Member] {
@@ -384,49 +337,6 @@ final class DatabaseManager: ObservableObject {
                 } else {
                     let items = snapshot?.documents.compactMap { self.memberFromDoc($0) } ?? []
                     continuation.resume(returning: items)
-                }
-            }
-        }
-    }
-
-    func fetchUser(username: String) async throws -> Member? {
-        let key = username.uppercased()
-        if let ref = memberUsernameRefCache[key] {
-            let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
-                ref.getDocument { doc, error in
-                    if let error = error {
-                        continuation.resume(throwing: error)
-                    } else if let doc = doc {
-                        continuation.resume(returning: doc)
-                    } else {
-                        continuation.resume(throwing: NSError(domain: "NotFound", code: 0))
-                    }
-                }
-            }
-            return memberFromDoc(doc)
-        }
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Member?, Error>) in
-            db.collection("member").whereField("username", isEqualTo: key).limit(to: 1).getDocuments { snapshot, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else if let doc = snapshot?.documents.first {
-                    continuation.resume(returning: self.memberFromDoc(doc))
-                } else {
-                    continuation.resume(returning: nil)
-                }
-            }
-        }
-    }
-
-    func fetchMemberByRecovery(code: Int) async throws -> Member? {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Member?, Error>) in
-            db.collection("member").whereField("recovery", isEqualTo: code).limit(to: 1).getDocuments { snapshot, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else if let doc = snapshot?.documents.first {
-                    continuation.resume(returning: self.memberFromDoc(doc))
-                } else {
-                    continuation.resume(returning: nil)
                 }
             }
         }
@@ -513,7 +423,7 @@ final class DatabaseManager: ObservableObject {
         try requireAuth()
         guard let ref = try await memberDocument(id: id) else { return }
 
-        // Fetch the document to get the username for the profile picture path
+        // Fetch the document to get the phone number for the profile picture path
         let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
             ref.getDocument { doc, error in
                 if let error = error {
@@ -526,8 +436,8 @@ final class DatabaseManager: ObservableObject {
             }
         }
 
-        if let username = doc.data()?["username"] as? String {
-            let storageRef = Storage.storage().reference().child("profile_pictures/\(username.uppercased()).jpg")
+        if let phone = doc.data()? ["phonenumber"] as? String {
+            let storageRef = Storage.storage().reference().child("profile_pictures/\(phone).jpg")
             // Attempt to delete the profile picture, but ignore errors if it does not exist
             do {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -555,22 +465,16 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    func updateMemberCredentials(id: Int, username: String, password: String) async throws {
-        try requireAuth()
-        let salt = generateSalt()
-        try await updateMember(id: id, fields: ["username": username.uppercased(), "passwordHash": hashPassword(password, salt: salt), "salt": salt])
-    }
-
-    func updateUser(username: String, firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
+    func updateUser(currentPhoneNumber: String, firstName: String, lastName: String, newPhoneNumber: String, dob: String, picture: Data?) async throws {
         try requireAuth()
         var fields: [String: Any] = [
             "firstname": firstName,
             "lastname": lastName,
-            "phonenumber": phoneNumber,
+            "phonenumber": newPhoneNumber,
             "dob": dob
         ]
         if let picture = picture {
-            let storageRef = Storage.storage().reference().child("profile_pictures/\(username.uppercased()).jpg")
+            let storageRef = Storage.storage().reference().child("profile_pictures/\(newPhoneNumber).jpg")
             let metadata = StorageMetadata()
             metadata.contentType = "image/jpeg"
             let urlString: String = try await withCheckedThrowingContinuation { continuation in
@@ -590,7 +494,9 @@ final class DatabaseManager: ObservableObject {
             }
             fields["picture"] = urlString
         }
-        guard let ref = try await memberDocument(username: username) else { return }
+        guard let ref = try await memberDocument(phoneNumber: currentPhoneNumber) else { return }
+        memberPhoneRefCache.removeValue(forKey: currentPhoneNumber)
+        memberPhoneRefCache[newPhoneNumber] = ref
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.updateData(fields) { error in
                 if let error = error {
@@ -602,41 +508,9 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    func updatePassword(username: String, currentPassword: String, newPassword: String) async throws {
+    func updateToday(phoneNumber: String, value: Int) async throws {
         try requireAuth()
-        guard let ref = try await memberDocument(username: username) else { return }
-        let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
-            ref.getDocument { doc, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else if let doc = doc {
-                    continuation.resume(returning: doc)
-                } else {
-                    continuation.resume(throwing: NSError(domain: "NotFound", code: 0))
-                }
-            }
-        }
-        guard let data = doc.data(),
-              let salt = data["salt"] as? String,
-              let stored = data["passwordHash"] as? String,
-              hashPassword(currentPassword, salt: salt) == stored else {
-            throw NSError(domain: "InvalidPassword", code: 1)
-        }
-        let newSalt = generateSalt()
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            ref.updateData(["passwordHash": hashPassword(newPassword, salt: newSalt), "salt": newSalt]) { error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
-                }
-            }
-        }
-    }
-
-    func updateToday(username: String, value: Int) async throws {
-        try requireAuth()
-        guard let ref = try await memberDocument(username: username) else { return }
+        guard let ref = try await memberDocument(phoneNumber: phoneNumber) else { return }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.updateData(["today": value]) { error in
                 if let error = error {
@@ -735,25 +609,25 @@ final class DatabaseManager: ObservableObject {
     }
 
     // MARK: - User Fields
-    func saveUserFields(username: String, fields: [Int]) async -> Bool {
+    func saveUserFields(phoneNumber: String, fields: [Int]) async -> Bool {
         await withCheckedContinuation { continuation in
             guard self.isAuthenticated else {
                 continuation.resume(returning: false)
                 return
             }
-            var data: [String: Any] = ["username": username.uppercased()]
+            var data: [String: Any] = ["phoneNumber": phoneNumber]
             for (index, value) in fields.enumerated() {
                 data["field\(index + 1)"] = value
             }
-            db.collection("user_fields").document(username.uppercased()).setData(data) { error in
+            db.collection("user_fields").document(phoneNumber).setData(data) { error in
                 continuation.resume(returning: error == nil)
             }
         }
     }
 
-    func fetchUserFields(username: String) async -> [Int]? {
+    func fetchUserFields(phoneNumber: String) async -> [Int]? {
         await withCheckedContinuation { continuation in
-            db.collection("user_fields").document(username.uppercased()).getDocument { doc, _ in
+            db.collection("user_fields").document(phoneNumber).getDocument { doc, _ in
                 guard let doc = doc, doc.exists else {
                     continuation.resume(returning: nil)
                     return
@@ -768,7 +642,7 @@ final class DatabaseManager: ObservableObject {
     }
 
     // MARK: - Setup Tables
-    func createTablesIfNeeded(for username: String) async {
+    func createTablesIfNeeded(for phoneNumber: String) async {
         guard isAuthenticated else { return }
 
         // Ensure management data exists
@@ -789,13 +663,13 @@ final class DatabaseManager: ObservableObject {
         }
 
         // Ensure user_fields document exists for this user
-        let userFieldsRef = db.collection("user_fields").document(username.uppercased())
+        let userFieldsRef = db.collection("user_fields").document(phoneNumber)
         await withCheckedContinuation { continuation in
             userFieldsRef.getDocument { doc, _ in
                 if let doc = doc, doc.exists {
                     continuation.resume()
                 } else {
-                    var data: [String: Any] = ["username": username.uppercased()]
+                    var data: [String: Any] = ["phoneNumber": phoneNumber]
                     for i in 1...12 {
                         data["field\(i)"] = 0
                     }

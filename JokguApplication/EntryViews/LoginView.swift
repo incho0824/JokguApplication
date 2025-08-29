@@ -222,12 +222,12 @@ struct LoginView: View {
                             }
                         }
                         if let member = fetchedMember {
-                            await databaseManager.createTablesIfNeeded(for: member.username)
+                            await databaseManager.createTablesIfNeeded(for: member.phoneNumber)
                             await MainActor.run {
-                                loggedInUser = member.username
+                                loggedInUser = member.phoneNumber
                                 userPermit = member.permit
                                 isLoggedIn = true
-                                KeychainManager.shared.save(member.username, for: "loggedInUser")
+                                KeychainManager.shared.save(member.phoneNumber, for: "loggedInUser")
                                 KeychainManager.shared.save(String(member.permit), for: "userPermit")
                                 KeychainManager.shared.save(enableFaceID ? "true" : "false", for: "faceIDEnabled")
                             }
@@ -286,9 +286,9 @@ struct LoginView: View {
         let candidates = [phone, digits]
         for number in candidates {
             if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: number), member.syncd == 1 {
-                await databaseManager.createTablesIfNeeded(for: member.username)
+                await databaseManager.createTablesIfNeeded(for: member.phoneNumber)
                 await MainActor.run {
-                    loggedInUser = member.username
+                    loggedInUser = member.phoneNumber
                     userPermit = member.permit
                     isLoggedIn = true
                 }

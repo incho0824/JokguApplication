@@ -1,11 +1,11 @@
 import SwiftUI
 
 extension View {
-    func todayPrompt(isPresented: Binding<Bool>, username: String, onDecision: (() -> Void)? = nil) -> some View {
+    func todayPrompt(isPresented: Binding<Bool>, phoneNumber: String, onDecision: (() -> Void)? = nil) -> some View {
         self.alert("Jokgu Today—YOU IN?", isPresented: isPresented) {
             Button("Yes") {
                 Task {
-                    try? await DatabaseManager.shared.updateToday(username: username, value: 1)
+                    try? await DatabaseManager.shared.updateToday(phoneNumber: phoneNumber, value: 1)
                     await MainActor.run {
                         isPresented.wrappedValue = false
                         onDecision?()
@@ -14,7 +14,7 @@ extension View {
             }
             Button("No") {
                 Task {
-                    try? await DatabaseManager.shared.updateToday(username: username, value: 2)
+                    try? await DatabaseManager.shared.updateToday(phoneNumber: phoneNumber, value: 2)
                     await MainActor.run {
                         isPresented.wrappedValue = false
                         onDecision?()
