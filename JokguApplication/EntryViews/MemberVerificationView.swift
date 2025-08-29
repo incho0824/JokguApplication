@@ -3,6 +3,9 @@ import FirebaseAuth
 
 struct MemberVerificationView: View {
     @Environment(\.dismiss) var dismiss
+    @Binding var isLoggedIn: Bool
+    @Binding var userPermit: Int
+    @Binding var loggedInUser: String
     @State private var members: [Member] = []
     @State private var selectedMember: Member? = nil
     @State private var showRegister = false
@@ -10,8 +13,8 @@ struct MemberVerificationView: View {
     @State private var inputCode: String = ""
     @State private var verificationID: String? = nil
     @State private var isSendingCode = false
-    @State private var errorMessage: String? = nil
-    @State private var successMessage: String? = nil
+    @State private var message: String? = nil
+    @State private var messageColor: Color = .green
 
     var body: some View {
         NavigationView {
@@ -45,7 +48,7 @@ struct MemberVerificationView: View {
                                 phone = "+" + digits
                             } else {
                                 isSendingCode = false
-                                errorMessage = "Invalid phone number format"
+                                showMessage("Invalid phone number format", color: .red)
                                 return
                             }
                             PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
@@ -55,7 +58,7 @@ struct MemberVerificationView: View {
                                         verificationID = id
                                         verifyingMember = member
                                     } else if let error = error {
-                                        errorMessage = error.localizedDescription
+                                        showMessage(error.localizedDescription, color: .red)
                                     }
                                 }
                             }
@@ -64,6 +67,10 @@ struct MemberVerificationView: View {
                     .disabled(selectedMember == nil || isSendingCode)
                 }
                 .padding()
+                if let message = message {
+                    Text(message)
+                        .foregroundColor(messageColor)
+                }
             }
             .navigationTitle("Who are you?")
             .toolbar {
@@ -88,7 +95,7 @@ struct MemberVerificationView: View {
                 }
             }
         }) {
-            RegisterView() {
+            RegisterView(isLoggedIn: $isLoggedIn, userPermit: $userPermit, loggedInUser: $loggedInUser) {
                 dismiss()
             }
         }
@@ -114,19 +121,25 @@ struct MemberVerificationView: View {
                                     Task {
                                         do {
                                             try await DatabaseManager.shared.updateSyncd(id: member.id, syncd: 1)
+                                            await DatabaseManager.shared.createTablesIfNeeded(for: member.username)
                                             await MainActor.run {
-                                                successMessage = "User's identification has been verified"
+                                                showMessage("Registration Complete", color: .green)
                                                 verifyingMember = nil
                                                 inputCode = ""
                                                 verificationID = nil
-                                                try? Auth.auth().signOut()
+                                                loggedInUser = member.username
+                                                userPermit = member.permit
+                                                isLoggedIn = true
+                                            }
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                                dismiss()
                                             }
                                         } catch {
-                                            await MainActor.run { errorMessage = error.localizedDescription }
+                                            await MainActor.run { showMessage(error.localizedDescription, color: .red) }
                                         }
                                     }
                                 } else {
-                                    errorMessage = error?.localizedDescription
+                                    showMessage(error?.localizedDescription ?? "Unknown error", color: .red)
                                 }
                             }
                         }
@@ -137,15 +150,19 @@ struct MemberVerificationView: View {
             }
             .presentationDetents([.medium])
         }
-        .alert(errorMessage ?? "", isPresented: Binding(get: { errorMessage != nil }, set: { _ in errorMessage = nil })) {
-            Button("OK", role: .cancel) { }
-        }
-        .alert(successMessage ?? "", isPresented: Binding(get: { successMessage != nil }, set: { _ in successMessage = nil })) {
-            Button("OK") { dismiss() }
-        }
     }
 }
 
 #Preview {
-    MemberVerificationView()
+    MemberVerificationView(isLoggedIn: .constant(false), userPermit: .constant(0), loggedInUser: .constant(""))
+}
+
+extension MemberVerificationView {
+    private func showMessage(_ text: String, color: Color) {
+        message = text
+        messageColor = color
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            message = nil
+        }
+    }
 }
