@@ -1,9 +1,12 @@
 import SwiftUI
 import PhotosUI
+import FirebaseAuth
 
 struct ProfileView: View {
     @Environment(\.dismiss) var dismiss
-    let username: String
+    @Binding var username: String
+    @Binding var isLoggedIn: Bool
+    @Binding var userPermit: Int
     @State private var firstName: String = ""
     @State private var lastName: String = ""
     @State private var phoneNumber: String = ""
@@ -16,6 +19,8 @@ struct ProfileView: View {
     @State private var selectedPhoto: PhotosPickerItem? = nil
     @State private var pictureData: Data? = nil
     @State private var pictureURL: String? = nil
+    @State private var memberId: Int? = nil
+    @State private var showDeleteAlert = false
 
     var body: some View {
         NavigationView {
@@ -186,6 +191,54 @@ struct ProfileView: View {
                         Text(message)
                             .foregroundColor(messageColor)
                     }
+
+                    Button(role: .destructive) {
+                        showDeleteAlert = true
+                    } label: {
+                        Text("Delete Account")
+                    }
+                    .padding(.top)
+                    .alert("Delete Account", isPresented: $showDeleteAlert) {
+                        Button("Delete", role: .destructive) {
+                            Task {
+                                let currentId = memberId
+                                do {
+                                    if let id = currentId {
+                                        try await DatabaseManager.shared.deleteUser(id: id)
+                                    }
+                                    if let user = Auth.auth().currentUser {
+                                        try? await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                                            user.delete { error in
+                                                if let error = error {
+                                                    continuation.resume(throwing: error)
+                                                } else {
+                                                    continuation.resume(returning: ())
+                                                }
+                                            }
+                                        }
+                                    }
+                                    try? Auth.auth().signOut()
+                                } catch {
+                                    await MainActor.run {
+                                        showMessage("Unable to delete account", color: .red)
+                                    }
+                                    return
+                                }
+                                await MainActor.run {
+                                    KeychainManager.shared.delete("loggedInUser")
+                                    KeychainManager.shared.delete("userPermit")
+                                    KeychainManager.shared.delete("faceIDEnabled")
+                                    userPermit = 0
+                                    username = ""
+                                    isLoggedIn = false
+                                    dismiss()
+                                }
+                            }
+                        }
+                        Button("Cancel", role: .cancel) { }
+                    } message: {
+                        Text("This action cannot be undone.")
+                    }
                 }
                 .padding(.bottom)
             }
@@ -204,6 +257,7 @@ struct ProfileView: View {
                             phoneNumber = member.phoneNumber
                             dob = dateFormatter.date(from: member.dob)
                             pictureURL = member.pictureURL
+                            memberId = member.id
                         }
                     }
                 }
@@ -245,6 +299,6 @@ struct ProfileView: View {
 }
 
 #Preview {
-    ProfileView(username: "USER")
+    ProfileView(username: .constant("USER"), isLoggedIn: .constant(true), userPermit: .constant(1))
 }
 
