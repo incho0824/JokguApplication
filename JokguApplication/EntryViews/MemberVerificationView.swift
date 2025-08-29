@@ -38,7 +38,16 @@ struct MemberVerificationView: View {
                         if let member = selectedMember {
                             isSendingCode = true
                             let digits = member.phoneNumber.filter { $0.isNumber }
-                            let phone = digits.hasPrefix("1") ? "+" + digits : "+1" + digits
+                            let phone: String
+                            if digits.count == 10 {
+                                phone = "+1" + digits
+                            } else if digits.count == 11 && digits.hasPrefix("1") {
+                                phone = "+" + digits
+                            } else {
+                                isSendingCode = false
+                                errorMessage = "Invalid phone number format"
+                                return
+                            }
                             PhoneAuthProvider.provider().verifyPhoneNumber(phone, uiDelegate: nil) { id, error in
                                 DispatchQueue.main.async {
                                     isSendingCode = false
