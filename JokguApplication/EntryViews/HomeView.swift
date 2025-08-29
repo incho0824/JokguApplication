@@ -107,6 +107,8 @@ struct HomeView: View {
 
                     Button {
                         try? Auth.auth().signOut()
+                        KeychainManager.shared.delete("loggedInUser")
+                        KeychainManager.shared.delete("userPermit")
                         username = ""
                         isLoggedIn = false
                     } label: {
