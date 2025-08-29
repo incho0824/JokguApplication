@@ -219,6 +219,8 @@ struct LoginView: View {
                                 loggedInUser = member.username
                                 userPermit = member.permit
                                 isLoggedIn = true
+                                KeychainManager.shared.save(member.username, for: "loggedInUser")
+                                KeychainManager.shared.save(String(member.permit), for: "userPermit")
                             }
                         } else {
                             await MainActor.run { showError("Phone number not registered. Please verify or register.") }
@@ -255,6 +257,17 @@ struct LoginView: View {
     }
 
     private func autoLoginIfPossible() async {
+        if let savedUser = KeychainManager.shared.read("loggedInUser"),
+           let permitString = KeychainManager.shared.read("userPermit"),
+           let savedPermit = Int(permitString) {
+            await databaseManager.createTablesIfNeeded(for: savedUser)
+            await MainActor.run {
+                loggedInUser = savedUser
+                userPermit = savedPermit
+                isLoggedIn = true
+            }
+            return
+        }
         guard let phone = Auth.auth().currentUser?.phoneNumber else { return }
         let digits = phone.filter { $0.isNumber }
         let candidates = [phone, digits]
