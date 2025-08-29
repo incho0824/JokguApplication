@@ -68,20 +68,20 @@ struct PayStatusView: View {
             ForEach(members) { member in
                 let binding = Binding<String>(
                     get: {
-                        let fields = userFields[member.username] ?? Array(repeating: "", count: months.count)
+                        let fields = userFields[member.phoneNumber] ?? Array(repeating: "", count: months.count)
                         return monthIndex < fields.count ? fields[monthIndex] : ""
                     },
                     set: { newValue in
                         guard userPermit == 9 || userPermit == 2 else { return }
-                        var fields = userFields[member.username] ?? Array(repeating: "", count: months.count)
+                        var fields = userFields[member.phoneNumber] ?? Array(repeating: "", count: months.count)
                         if fields.count < months.count {
                             fields += Array(repeating: "", count: months.count - fields.count)
                         }
                         fields[monthIndex] = newValue
-                        userFields[member.username] = fields
+                        userFields[member.phoneNumber] = fields
                         let intFields = fields.map { Int($0) ?? 0 }
                         Task {
-                            _ = await DatabaseManager.shared.saveUserFields(username: member.username, fields: intFields)
+                            _ = await DatabaseManager.shared.saveUserFields(phoneNumber: member.phoneNumber, fields: intFields)
                         }
                     }
                 )
@@ -117,14 +117,14 @@ struct PayStatusView: View {
                 let filtered = fetched.filter { $0.guest == 1 }
                 var dict: [String: [String]] = [:]
                 for member in filtered {
-                    if let values = await DatabaseManager.shared.fetchUserFields(username: member.username) {
+                    if let values = await DatabaseManager.shared.fetchUserFields(phoneNumber: member.phoneNumber) {
                         var strings = values.map { String($0) }
                         if strings.count < months.count {
                             strings += Array(repeating: "", count: months.count - strings.count)
                         }
-                        dict[member.username] = strings
+                        dict[member.phoneNumber] = strings
                     } else {
-                        dict[member.username] = Array(repeating: "", count: months.count)
+                        dict[member.phoneNumber] = Array(repeating: "", count: months.count)
                     }
                 }
                 let managements = try await DatabaseManager.shared.fetchManagementData()
@@ -146,7 +146,7 @@ struct PayStatusView: View {
         for monthIndex in 0..<months.count {
             var row = months[monthIndex]
             for member in members {
-                let fields = userFields[member.username] ?? Array(repeating: "", count: months.count)
+                let fields = userFields[member.phoneNumber] ?? Array(repeating: "", count: months.count)
                 let value = monthIndex < fields.count ? fields[monthIndex] : ""
                 row += ",\(value)"
             }

@@ -7,7 +7,7 @@ import FirebaseAuth
 struct HomeView: View {
     @Binding var isLoggedIn: Bool
     @Binding var userPermit: Int
-    @Binding var username: String
+    @Binding var phoneNumber: String
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var databaseManager: DatabaseManager
     @State private var showManagement = false
@@ -55,7 +55,7 @@ struct HomeView: View {
                     }
                     .buttonStyle(HomeButtonStyle())
                     .sheet(isPresented: $showLineup) {
-                        LineupView(username: username)
+                        LineupView(phoneNumber: phoneNumber)
                     }
                     .padding(.horizontal)
 
@@ -77,7 +77,7 @@ struct HomeView: View {
                     }
                     .buttonStyle(HomeButtonStyle())
                     .sheet(isPresented: $showProfile) {
-                        ProfileView(username: $username, isLoggedIn: $isLoggedIn, userPermit: $userPermit)
+                        ProfileView(phoneNumber: $phoneNumber, isLoggedIn: $isLoggedIn, userPermit: $userPermit)
                     }
                     .padding(.horizontal)
 
@@ -88,7 +88,7 @@ struct HomeView: View {
                     }
                     .buttonStyle(HomeButtonStyle())
                     .sheet(isPresented: $showPayment) {
-                        PaymentView(username: username)
+                        PaymentView(phoneNumber: phoneNumber)
                     }
                     .padding(.horizontal)
 
@@ -110,7 +110,7 @@ struct HomeView: View {
                         KeychainManager.shared.delete("loggedInUser")
                         KeychainManager.shared.delete("userPermit")
                         KeychainManager.shared.delete("faceIDEnabled")
-                        username = ""
+                        phoneNumber = ""
                         isLoggedIn = false
                     } label: {
                         Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
@@ -134,7 +134,7 @@ struct HomeView: View {
         .onChange(of: databaseManager.management?.id) { _, _ in
             checkTodayStatus()
         }
-        .todayPrompt(isPresented: $showTodayPrompt, username: username)
+        .todayPrompt(isPresented: $showTodayPrompt, phoneNumber: phoneNumber)
     }
 
     private func formatNotification(_ text: String) -> AttributedString {
@@ -179,7 +179,7 @@ struct HomeView: View {
             let todayName = formatter.string(from: Date())
             if let management = databaseManager.management,
                management.playwhen.contains(todayName),
-               let user = try? await DatabaseManager.shared.fetchUser(username: username),
+               let user = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: phoneNumber),
                user.today == 0 {
                 await MainActor.run { showTodayPrompt = true }
             }
@@ -202,6 +202,6 @@ private struct HomeButtonStyle: ButtonStyle {
 }
 
 #Preview {
-    HomeView(isLoggedIn: .constant(true), userPermit: .constant(1), username: .constant("USER"))
+    HomeView(isLoggedIn: .constant(true), userPermit: .constant(1), phoneNumber: .constant("USER"))
         .environmentObject(DatabaseManager.shared)
 }

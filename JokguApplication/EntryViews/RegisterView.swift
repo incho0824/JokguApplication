@@ -138,21 +138,19 @@ struct RegisterView: View {
         let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let dob = dob else { return }
-        let username = trimmedPhone.filter { $0.isNumber }
         do {
+            let phoneDigits = trimmedPhone.filter { $0.isNumber }
             try await DatabaseManager.shared.insertUser(
-                username: username,
-                password: UUID().uuidString,
                 firstName: trimmedFirst,
                 lastName: trimmedLast,
-                phoneNumber: trimmedPhone,
+                phoneNumber: phoneDigits,
                 dob: dateFormatter.string(from: dob),
                 picture: UIImage(named: "default-profile")?.pngData()
             )
             let member = try await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: trimmedPhone)
-            await DatabaseManager.shared.createTablesIfNeeded(for: username)
+            await DatabaseManager.shared.createTablesIfNeeded(for: phoneDigits)
             await MainActor.run {
-                loggedInUser = member?.username ?? username
+                loggedInUser = member?.phoneNumber ?? phoneDigits
                 userPermit = member?.permit ?? 0
                 isLoggedIn = true
                 showMessage("Registration Complete", color: .green)

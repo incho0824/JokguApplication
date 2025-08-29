@@ -4,16 +4,14 @@ import FirebaseAuth
 
 struct ProfileView: View {
     @Environment(\.dismiss) var dismiss
-    @Binding var username: String
+    @Binding var phoneNumber: String
     @Binding var isLoggedIn: Bool
     @Binding var userPermit: Int
     @State private var firstName: String = ""
     @State private var lastName: String = ""
-    @State private var phoneNumber: String = ""
+    @State private var phoneNumberLocal: String = ""
     @State private var dob: Date? = nil
-    @State private var currentPassword: String = ""
-    @State private var newPassword: String = ""
-    @State private var confirmPassword: String = ""
+    @State private var originalPhoneNumber: String = ""
     @State private var message: String? = nil
     @State private var messageColor: Color = .red
     @State private var selectedPhoto: PhotosPickerItem? = nil
@@ -88,12 +86,12 @@ struct ProfileView: View {
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .padding(.horizontal)
 
-                    TextField("Phone Number", text: $phoneNumber)
+                    TextField("Phone Number", text: $phoneNumberLocal)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .keyboardType(.phonePad)
                         .padding(.horizontal)
-                        .onChange(of: phoneNumber) { _, newValue in
-                            phoneNumber = formatPhoneNumber(newValue)
+                        .onChange(of: phoneNumberLocal) { _, newValue in
+                            phoneNumberLocal = formatPhoneNumber(newValue)
                         }
 
                     DatePicker("Date of Birth", selection: Binding(
@@ -107,79 +105,22 @@ struct ProfileView: View {
                     Button("Save Info") {
                         let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let trimmedPhone = phoneNumberLocal.trimmingCharacters(in: .whitespacesAndNewlines)
 
                         if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || dob == nil {
                             showMessage("All fields are required", color: .red)
                         } else {
                             Task {
                                 do {
-                                    try await DatabaseManager.shared.updateUser(username: username, firstName: trimmedFirst, lastName: trimmedLast, phoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData)
+                                    try await DatabaseManager.shared.updateUser(currentPhoneNumber: originalPhoneNumber, firstName: trimmedFirst, lastName: trimmedLast, newPhoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData)
                                     await MainActor.run {
+                                        phoneNumber = trimmedPhone
+                                        originalPhoneNumber = trimmedPhone
                                         showMessage("Information updated", color: .green)
                                     }
                                 } catch {
                                     await MainActor.run {
                                         showMessage("Unable to update information", color: .red)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.top)
-
-                    Divider().padding(.vertical)
-
-                    SecureField("Current Password", text: $currentPassword)
-                        // Use a content type that prevents iOS from offering
-                        // strong password suggestions when editing the current
-                        // password field. Without this, the system can overlay
-                        // a "strong password" suggestion view that blocks user
-                        // input.
-                        .textContentType(.oneTimeCode)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.horizontal)
-
-                    SecureField("New Password", text: $newPassword)
-                        .textContentType(.newPassword)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.horizontal)
-
-                    SecureField("Confirm Password", text: $confirmPassword)
-                        .textContentType(.newPassword)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .padding(.horizontal)
-
-                    Button("Update Password") {
-                        if currentPassword.isEmpty || newPassword.isEmpty {
-                            showMessage("Current and new passwords are required", color: .red)
-                        } else if confirmPassword.isEmpty {
-                            showMessage("Please confirm your new password", color: .red)
-                        } else if newPassword != confirmPassword {
-                            showMessage("Passwords do not match", color: .red)
-                        } else {
-                            Task {
-                                do {
-                                    try await DatabaseManager.shared.updatePassword(username: username, currentPassword: currentPassword, newPassword: newPassword)
-                                    await MainActor.run {
-                                        showMessage("Password updated", color: .green)
-                                        currentPassword = ""
-                                        newPassword = ""
-                                        confirmPassword = ""
-                                    }
-                                } catch {
-                                    await MainActor.run {
-                                        if (error as NSError).domain == "InvalidPassword" {
-                                            showMessage("Current password incorrect", color: .red)
-                                        } else {
-                                            showMessage("Unable to update password", color: .red)
-                                        }
                                     }
                                 }
                             }
@@ -229,7 +170,7 @@ struct ProfileView: View {
                                     KeychainManager.shared.delete("userPermit")
                                     KeychainManager.shared.delete("faceIDEnabled")
                                     userPermit = 0
-                                    username = ""
+                                    phoneNumber = ""
                                     isLoggedIn = false
                                     dismiss()
                                 }
@@ -250,11 +191,12 @@ struct ProfileView: View {
             }
             .onAppear {
                 Task {
-                    if let member = try? await DatabaseManager.shared.fetchUser(username: username) {
+                    if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: phoneNumber) {
                         await MainActor.run {
                             firstName = member.firstName
                             lastName = member.lastName
-                            phoneNumber = member.phoneNumber
+                            phoneNumberLocal = member.phoneNumber
+                            originalPhoneNumber = member.phoneNumber
                             dob = dateFormatter.date(from: member.dob)
                             pictureURL = member.pictureURL
                             memberId = member.id
@@ -299,6 +241,6 @@ struct ProfileView: View {
 }
 
 #Preview {
-    ProfileView(username: .constant("USER"), isLoggedIn: .constant(true), userPermit: .constant(1))
+    ProfileView(phoneNumber: .constant("USER"), isLoggedIn: .constant(true), userPermit: .constant(1))
 }
 

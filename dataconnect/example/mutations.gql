@@ -6,10 +6,10 @@
 #   movie_insert(data: { title: $title, genre: $genre, imageUrl: $imageUrl })
 # }
 
-# # Upsert (update or insert) a user's username based on their auth.uid
-# mutation UpsertUser($username: String!) @auth(level: USER) {
+# # Upsert (update or insert) a user's phone number based on their auth.uid
+# mutation UpsertUser($phoneNumber: String!) @auth(level: USER) {
 #   # The "auth.uid" server value ensures that users can only register their own user.
-#   user_upsert(data: { id_expr: "auth.uid", username: $username })
+#   user_upsert(data: { id_expr: "auth.uid", phoneNumber: $phoneNumber })
 # }
 
 # # Add a review for a movie

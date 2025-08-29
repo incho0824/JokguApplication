@@ -99,9 +99,6 @@ struct MemberView: View {
                             Text("DOB: \(member.dob)")
                             Text("Phone: \(member.phoneNumber)")
                             Text("Attendance: \(member.attendance)")
-                            if userPermit == 2 {
-                                Text("Recovery: \(member.recovery)")
-                            }
                             if userPermit == 9 || userPermit == 2 {
                                 Toggle("Guest", isOn: Binding(
                                     get: { members[index].guest == 1 },
@@ -171,7 +168,7 @@ struct MemberView: View {
                 case .delete:
                     return Alert(
                         title: Text("Confirm Delete"),
-                        message: Text("Are you sure you want to delete \(selectedMember?.username ?? "this user")?"),
+                        message: Text("Are you sure you want to delete \(selectedMember?.phoneNumber ?? "this user")?"),
                         primaryButton: .destructive(Text("Delete")) {
                             if let member = selectedMember, member.permit != 2 {
                                 Task { try? await DatabaseManager.shared.deleteUser(id: member.id) }
@@ -182,7 +179,7 @@ struct MemberView: View {
                 case .permit:
                     return Alert(
                         title: Text("Confirm Permit Change"),
-                        message: Text("Change permit to \(newPermit) for \(selectedMember?.username ?? "user")?"),
+                        message: Text("Change permit to \(newPermit) for \(selectedMember?.phoneNumber ?? "user")?"),
                         primaryButton: .default(Text("Update")) {
                             if let member = selectedMember, member.permit != 2 {
                                 Task { try? await DatabaseManager.shared.updatePermit(id: member.id, permit: newPermit) }
