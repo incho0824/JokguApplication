@@ -734,4 +734,44 @@ final class DatabaseManager: ObservableObject {
             }
         }
     }
+
+    // MARK: - Setup Tables
+    func createTablesIfNeeded(for username: String) async {
+        guard isAuthenticated else { return }
+
+        // Ensure management data exists
+        _ = try? await fetchManagementData()
+
+        // Ensure member counter exists
+        let counterRef = db.collection("counters").document("member")
+        await withCheckedContinuation { continuation in
+            counterRef.getDocument { doc, _ in
+                if let doc = doc, doc.exists {
+                    continuation.resume()
+                } else {
+                    counterRef.setData(["nextId": 1]) { _ in
+                        continuation.resume()
+                    }
+                }
+            }
+        }
+
+        // Ensure user_fields document exists for this user
+        let userFieldsRef = db.collection("user_fields").document(username.uppercased())
+        await withCheckedContinuation { continuation in
+            userFieldsRef.getDocument { doc, _ in
+                if let doc = doc, doc.exists {
+                    continuation.resume()
+                } else {
+                    var data: [String: Any] = ["username": username.uppercased()]
+                    for i in 1...12 {
+                        data["field\(i)"] = 0
+                    }
+                    userFieldsRef.setData(data) { _ in
+                        continuation.resume()
+                    }
+                }
+            }
+        }
+    }
 }

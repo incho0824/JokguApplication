@@ -202,6 +202,7 @@ struct LoginView: View {
                             }
                         }
                         if let member = fetchedMember {
+                            await databaseManager.createTablesIfNeeded(for: member.username)
                             await MainActor.run {
                                 loggedInUser = member.username
                                 userPermit = member.permit
@@ -247,6 +248,7 @@ struct LoginView: View {
         let candidates = [phone, digits]
         for number in candidates {
             if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: number), member.syncd == 1 {
+                await databaseManager.createTablesIfNeeded(for: member.username)
                 await MainActor.run {
                     loggedInUser = member.username
                     userPermit = member.permit
