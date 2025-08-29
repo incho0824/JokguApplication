@@ -147,6 +147,11 @@ struct LoginView: View {
         .sheet(isPresented: $showMemberVerifyView) {
             MemberVerificationView()
         }
+        .onAppear {
+            Task {
+                await autoLoginIfPossible()
+            }
+        }
     }
 
     private func openInMaps(address: String) {
@@ -204,8 +209,8 @@ struct LoginView: View {
                             }
                         } else {
                             await MainActor.run { errorMessage = "Account has not been registered" }
+                            try? Auth.auth().signOut()
                         }
-                        try? Auth.auth().signOut()
                         await MainActor.run {
                             verificationID = nil
                             smsCode = ""
@@ -234,6 +239,23 @@ struct LoginView: View {
             result += "-" + last
         }
         return result
+    }
+
+    private func autoLoginIfPossible() async {
+        guard let phone = Auth.auth().currentUser?.phoneNumber else { return }
+        let digits = phone.filter { $0.isNumber }
+        let candidates = [phone, digits]
+        for number in candidates {
+            if let member = try? await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: number), member.syncd == 1 {
+                await MainActor.run {
+                    loggedInUser = member.username
+                    userPermit = member.permit
+                    isLoggedIn = true
+                }
+                return
+            }
+        }
+        try? Auth.auth().signOut()
     }
 }
 

@@ -2,6 +2,7 @@ import SwiftUI
 import Foundation
 import UIKit
 import UserNotifications
+import FirebaseAuth
 
 struct HomeView: View {
     @Binding var isLoggedIn: Bool
@@ -105,6 +106,7 @@ struct HomeView: View {
                     }
 
                     Button {
+                        try? Auth.auth().signOut()
                         username = ""
                         isLoggedIn = false
                     } label: {
