@@ -512,6 +512,38 @@ final class DatabaseManager: ObservableObject {
     func deleteUser(id: Int) async throws {
         try requireAuth()
         guard let ref = try await memberDocument(id: id) else { return }
+
+        // Fetch the document to get the username for the profile picture path
+        let doc = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<DocumentSnapshot, Error>) in
+            ref.getDocument { doc, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let doc = doc {
+                    continuation.resume(returning: doc)
+                } else {
+                    continuation.resume(throwing: NSError(domain: "NotFound", code: 0))
+                }
+            }
+        }
+
+        if let username = doc.data()?["username"] as? String {
+            let storageRef = Storage.storage().reference().child("profile_pictures/\(username.uppercased()).jpg")
+            // Attempt to delete the profile picture, but ignore errors if it does not exist
+            do {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    storageRef.delete { error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
+                        } else {
+                            continuation.resume(returning: ())
+                        }
+                    }
+                }
+            } catch {
+                // ignore deletion errors; continue deleting user document
+            }
+        }
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.delete { error in
                 if let error = error {
