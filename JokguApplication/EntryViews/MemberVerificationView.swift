@@ -123,12 +123,15 @@ struct MemberVerificationView: View {
                                             try await DatabaseManager.shared.updateSyncd(id: member.id, syncd: 1)
                                             await DatabaseManager.shared.createTablesIfNeeded(for: member.username)
                                             await MainActor.run {
+                                                loggedInUser = member.username
+                                                userPermit = member.permit
+                                                isLoggedIn = true
                                                 showMessage("Registration Complete", color: .green)
                                                 verifyingMember = nil
                                                 inputCode = ""
                                                 verificationID = nil
                                             }
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                                                 dismiss()
                                             }
                                         } catch {
@@ -158,7 +161,7 @@ extension MemberVerificationView {
     private func showMessage(_ text: String, color: Color) {
         message = text
         messageColor = color
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             message = nil
         }
     }

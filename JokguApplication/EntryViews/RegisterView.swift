@@ -122,7 +122,7 @@ struct RegisterView: View {
     private func showMessage(_ text: String, color: Color) {
         message = text
         messageColor = color
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             message = nil
         }
     }
@@ -152,9 +152,12 @@ struct RegisterView: View {
             let member = try await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: trimmedPhone)
             await DatabaseManager.shared.createTablesIfNeeded(for: username)
             await MainActor.run {
+                loggedInUser = member?.username ?? username
+                userPermit = member?.permit ?? 0
+                isLoggedIn = true
                 showMessage("Registration Complete", color: .green)
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 onComplete?()
                 dismiss()
             }
