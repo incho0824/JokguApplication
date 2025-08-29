@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import LocalAuthentication
 
 struct LoginView: View {
     @Binding var isLoggedIn: Bool
@@ -15,6 +16,8 @@ struct LoginView: View {
     @State private var keyCodeInput: String = ""
     @State private var showMemberVerifyView: Bool = false
     @State private var showAddressPrompt: Bool = false
+    @State private var enableFaceID = KeychainManager.shared.read("faceIDEnabled") == "true"
+    private let canUseFaceID = LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var databaseManager: DatabaseManager
 
@@ -73,7 +76,12 @@ struct LoginView: View {
                         .keyboardType(.numberPad)
                         .padding(.horizontal)
 
-                    Button("Confirm") {
+                    if canUseFaceID {
+                        Toggle("Enable Face ID Login", isOn: $enableFaceID)
+                            .padding(.horizontal)
+                    }
+
+                    Button("Sign In") {
                         confirmCode()
                     }
                     .disabled(smsCode.isEmpty)
@@ -221,6 +229,7 @@ struct LoginView: View {
                                 isLoggedIn = true
                                 KeychainManager.shared.save(member.username, for: "loggedInUser")
                                 KeychainManager.shared.save(String(member.permit), for: "userPermit")
+                                KeychainManager.shared.save(enableFaceID ? "true" : "false", for: "faceIDEnabled")
                             }
                         } else {
                             await MainActor.run { showError("Phone number not registered. Please verify or register.") }
@@ -257,6 +266,10 @@ struct LoginView: View {
     }
 
     private func autoLoginIfPossible() async {
+        if KeychainManager.shared.read("faceIDEnabled") == "true" {
+            let authSuccess = await authenticateWithFaceID()
+            if !authSuccess { return }
+        }
         if let savedUser = KeychainManager.shared.read("loggedInUser"),
            let permitString = KeychainManager.shared.read("userPermit"),
            let savedPermit = Int(permitString) {
@@ -298,6 +311,19 @@ extension LoginView {
         keyCodeError = message
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             keyCodeError = nil
+        }
+    }
+
+    private func authenticateWithFaceID() async -> Bool {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            return false
+        }
+        return await withCheckedContinuation { continuation in
+            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: "Authenticate to log in") { success, _ in
+                continuation.resume(returning: success)
+            }
         }
     }
 }
