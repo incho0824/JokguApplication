@@ -221,7 +221,7 @@ struct LoginView: View {
                                 isLoggedIn = true
                             }
                         } else {
-                            await MainActor.run { showError("Account has not been registered") }
+                            await MainActor.run { showError("Phone number not registered. Please verify or register.") }
                             try? Auth.auth().signOut()
                         }
                         await MainActor.run {
