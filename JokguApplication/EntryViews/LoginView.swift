@@ -199,7 +199,11 @@ struct LoginView: View {
                 if let id = id {
                     verificationID = id
                 } else if let error = error {
-                    showError(error.localizedDescription)
+                    if let code = AuthErrorCode.Code(rawValue: (error as NSError).code), code == .invalidPhoneNumber {
+                        showError("Invalid phone number. Please check the number and try again.")
+                    } else {
+                        showError("Failed to send verification code. Please try again.")
+                    }
                 }
             }
         }
@@ -232,7 +236,7 @@ struct LoginView: View {
                                 KeychainManager.shared.save(enableFaceID ? "true" : "false", for: "faceIDEnabled")
                             }
                         } else {
-                            await MainActor.run { showError("Phone number not registered. Please verify or register.") }
+                            await MainActor.run { showError("No account found for this phone number.") }
                             try? Auth.auth().signOut()
                         }
                         await MainActor.run {
