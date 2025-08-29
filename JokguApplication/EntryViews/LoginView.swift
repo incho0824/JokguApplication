@@ -154,7 +154,9 @@ struct LoginView: View {
             }
             .padding()
         }
-        .sheet(isPresented: $showMemberVerifyView) {
+        .sheet(isPresented: $showMemberVerifyView, onDismiss: {
+            Task { await autoLoginIfPossible() }
+        }) {
             MemberVerificationView(isLoggedIn: $isLoggedIn, userPermit: $userPermit, loggedInUser: $loggedInUser)
         }
         .onAppear {
