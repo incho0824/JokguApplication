@@ -3,6 +3,9 @@ import FirebaseAuth
 
 struct RegisterView: View {
     @Environment(\.dismiss) var dismiss
+    @Binding var isLoggedIn: Bool
+    @Binding var userPermit: Int
+    @Binding var loggedInUser: String
     var onComplete: (() -> Void)? = nil
     @State private var firstName: String = ""
     @State private var lastName: String = ""
@@ -101,7 +104,6 @@ struct RegisterView: View {
                                 } else {
                                     Task {
                                         await registerAfterVerification()
-                                        try? Auth.auth().signOut()
                                     }
                                 }
                                 verificationID = nil
@@ -147,8 +149,17 @@ struct RegisterView: View {
                 dob: dateFormatter.string(from: dob),
                 picture: UIImage(named: "default-profile")?.pngData()
             )
+            let member = try await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: trimmedPhone)
+            await DatabaseManager.shared.createTablesIfNeeded(for: username)
             await MainActor.run {
-                showMessage("User created", color: .green)
+                showMessage("Registration Complete", color: .green)
+                if let member = member {
+                    loggedInUser = member.username
+                    userPermit = member.permit
+                }
+                isLoggedIn = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 onComplete?()
                 dismiss()
             }
@@ -177,6 +188,6 @@ struct RegisterView: View {
 }
 
 #Preview {
-    RegisterView()
+    RegisterView(isLoggedIn: .constant(false), userPermit: .constant(0), loggedInUser: .constant(""))
 }
 

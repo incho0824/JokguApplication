@@ -10,6 +10,7 @@ struct LoginView: View {
     @State private var verificationID: String? = nil
     @State private var isSendingCode = false
     @State private var errorMessage: String? = nil
+    @State private var keyCodeError: String? = nil
     @State private var showKeyCodePrompt: Bool = false
     @State private var keyCodeInput: String = ""
     @State private var showMemberVerifyView: Bool = false
@@ -121,10 +122,16 @@ struct LoginView: View {
                     .keyboardType(.numberPad)
                     .padding(.horizontal)
 
+                if let keyCodeError = keyCodeError {
+                    Text(keyCodeError)
+                        .foregroundColor(.red)
+                }
+
                 HStack {
                     Button("Cancel") {
                         showKeyCodePrompt = false
                         keyCodeInput = ""
+                        keyCodeError = nil
                     }
 
                     Spacer()
@@ -135,7 +142,10 @@ struct LoginView: View {
                             if keyCodeInput == storedCode {
                                 showKeyCodePrompt = false
                                 keyCodeInput = ""
+                                keyCodeError = nil
                                 showMemberVerifyView = true
+                            } else {
+                                showKeyCodeError("Invalid key code")
                             }
                         }
                     }
@@ -145,7 +155,7 @@ struct LoginView: View {
             .padding()
         }
         .sheet(isPresented: $showMemberVerifyView) {
-            MemberVerificationView()
+            MemberVerificationView(isLoggedIn: $isLoggedIn, userPermit: $userPermit, loggedInUser: $loggedInUser)
         }
         .onAppear {
             Task {
@@ -179,7 +189,7 @@ struct LoginView: View {
                 if let id = id {
                     verificationID = id
                 } else if let error = error {
-                    errorMessage = error.localizedDescription
+                    showError(error.localizedDescription)
                 }
             }
         }
@@ -209,7 +219,7 @@ struct LoginView: View {
                                 isLoggedIn = true
                             }
                         } else {
-                            await MainActor.run { errorMessage = "Account has not been registered" }
+                            await MainActor.run { showError("Account has not been registered") }
                             try? Auth.auth().signOut()
                         }
                         await MainActor.run {
@@ -218,7 +228,7 @@ struct LoginView: View {
                         }
                     }
                 } else {
-                    errorMessage = error?.localizedDescription
+                    showError(error?.localizedDescription ?? "Unknown error")
                 }
             }
         }
@@ -258,6 +268,22 @@ struct LoginView: View {
             }
         }
         try? Auth.auth().signOut()
+    }
+}
+
+extension LoginView {
+    private func showError(_ message: String) {
+        errorMessage = message
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            errorMessage = nil
+        }
+    }
+
+    private func showKeyCodeError(_ message: String) {
+        keyCodeError = message
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            keyCodeError = nil
+        }
     }
 }
 
