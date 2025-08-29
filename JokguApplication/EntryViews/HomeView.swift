@@ -77,7 +77,7 @@ struct HomeView: View {
                     }
                     .buttonStyle(HomeButtonStyle())
                     .sheet(isPresented: $showProfile) {
-                        ProfileView(username: username)
+                        ProfileView(username: $username, isLoggedIn: $isLoggedIn, userPermit: $userPermit)
                     }
                     .padding(.horizontal)
 
