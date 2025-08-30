@@ -160,7 +160,14 @@ struct RegisterView: View {
                 dismiss()
             }
         } catch {
-            await MainActor.run { showMessage("Unable to create user", color: .red) }
+            await MainActor.run {
+                let nsError = error as NSError
+                if nsError.domain == "UserExists" {
+                    showMessage("An account already exists for this phone number", color: .red)
+                } else {
+                    showMessage("Unable to create user", color: .red)
+                }
+            }
         }
     }
 
