@@ -120,11 +120,16 @@ struct MemberVerificationView: View {
                                 if error == nil {
                                     Task {
                                         do {
-                                            try await DatabaseManager.shared.updateSyncd(id: member.id, syncd: 1)
-                                            await DatabaseManager.shared.createTablesIfNeeded(for: member.phoneNumber)
+                                            // Check if a member already exists with the same phone number
+                                            let existing = try await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: member.phoneNumber)
+                                            let target = existing ?? member
+
+                                            try await DatabaseManager.shared.updateSyncd(id: target.id, syncd: 1)
+                                            await DatabaseManager.shared.createTablesIfNeeded(for: target.phoneNumber)
+
                                             await MainActor.run {
-                                                loggedInUser = member.phoneNumber
-                                                userPermit = member.permit
+                                                loggedInUser = target.phoneNumber
+                                                userPermit = target.permit
                                                 isLoggedIn = true
                                                 showMessage("Registration Complete", color: .green)
                                                 verifyingMember = nil
