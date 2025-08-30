@@ -6,10 +6,10 @@ struct MemberVerificationView: View {
     @Binding var isLoggedIn: Bool
     @Binding var userPermit: Int
     @Binding var loggedInUser: String
-    @State private var members: [Member] = []
-    @State private var selectedMember: Member? = nil
+    @State private var members: [OriginalMember] = []
+    @State private var selectedMember: OriginalMember? = nil
     @State private var showRegister = false
-    @State private var verifyingMember: Member? = nil
+    @State private var verifyingMember: OriginalMember? = nil
     @State private var inputCode: String = ""
     @State private var verificationID: String? = nil
     @State private var isSendingCode = false
@@ -83,14 +83,14 @@ struct MemberVerificationView: View {
         }
         .onAppear {
             Task {
-                if let fetched = try? await DatabaseManager.shared.fetchUnsyncedMembers() {
+                if let fetched = try? await DatabaseManager.shared.fetchUnsyncedOriginalMembers() {
                     await MainActor.run { members = fetched }
                 }
             }
         }
         .sheet(isPresented: $showRegister, onDismiss: {
             Task {
-                if let fetched = try? await DatabaseManager.shared.fetchUnsyncedMembers() {
+                if let fetched = try? await DatabaseManager.shared.fetchUnsyncedOriginalMembers() {
                     await MainActor.run { members = fetched }
                 }
             }
@@ -120,7 +120,8 @@ struct MemberVerificationView: View {
                                 if error == nil {
                                     Task {
                                         do {
-                                            try await DatabaseManager.shared.updateSyncd(id: member.id, syncd: 1)
+                                            try await DatabaseManager.shared.updateOriginalSyncd(id: member.id, syncd: 1)
+                                            try await DatabaseManager.shared.insertUser(firstName: member.firstName, lastName: member.lastName, phoneNumber: member.phoneNumber, dob: member.dob, picture: nil, permit: member.permit, guest: member.guest)
                                             await DatabaseManager.shared.createTablesIfNeeded(for: member.phoneNumber)
                                             await MainActor.run {
                                                 loggedInUser = member.phoneNumber
