@@ -105,17 +105,18 @@ struct ProfileView: View {
                     Button("Save Info") {
                         let trimmedFirst = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedLast = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let trimmedPhone = phoneNumberLocal.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let digitsOnly = phoneNumberLocal.filter { $0.isNumber }
 
-                        if trimmedFirst.isEmpty || trimmedLast.isEmpty || trimmedPhone.isEmpty || dob == nil {
+                        if trimmedFirst.isEmpty || trimmedLast.isEmpty || digitsOnly.isEmpty || dob == nil {
                             showMessage("All fields are required", color: .red)
                         } else {
                             Task {
                                 do {
-                                    try await DatabaseManager.shared.updateUser(currentPhoneNumber: originalPhoneNumber, firstName: trimmedFirst, lastName: trimmedLast, newPhoneNumber: trimmedPhone, dob: dateFormatter.string(from: dob!), picture: pictureData)
+                                    try await DatabaseManager.shared.updateUser(currentPhoneNumber: originalPhoneNumber, firstName: trimmedFirst, lastName: trimmedLast, newPhoneNumber: digitsOnly, dob: dateFormatter.string(from: dob!), picture: pictureData)
                                     await MainActor.run {
-                                        phoneNumber = trimmedPhone
-                                        originalPhoneNumber = trimmedPhone
+                                        phoneNumber = digitsOnly
+                                        phoneNumberLocal = formatPhoneNumber(digitsOnly)
+                                        originalPhoneNumber = digitsOnly
                                         showMessage("Information updated", color: .green)
                                     }
                                 } catch {
@@ -195,8 +196,9 @@ struct ProfileView: View {
                         await MainActor.run {
                             firstName = member.firstName
                             lastName = member.lastName
-                            phoneNumberLocal = member.phoneNumber
-                            originalPhoneNumber = member.phoneNumber
+                            let digits = member.phoneNumber.filter { $0.isNumber }
+                            phoneNumberLocal = formatPhoneNumber(digits)
+                            originalPhoneNumber = digits
                             dob = dateFormatter.date(from: member.dob)
                             pictureURL = member.pictureURL
                             memberId = member.id
