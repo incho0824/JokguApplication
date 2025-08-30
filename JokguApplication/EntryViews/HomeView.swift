@@ -10,6 +10,7 @@ struct HomeView: View {
     @Binding var phoneNumber: String
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var databaseManager: DatabaseManager
+    @Environment(\.openURL) private var openURL
     @State private var showManagement = false
     @State private var showMembers = false
     @State private var showLineup = false
@@ -120,6 +121,30 @@ struct HomeView: View {
                     .padding(.horizontal)
                 }
                 .padding(.bottom, 40)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            HStack(spacing: 0) {
+                if let kakaoURL = databaseManager.management?.kakao {
+                    Button {
+                        openURL(kakaoURL)
+                    } label: {
+                        Image("kakao-logo")
+                            .resizable()
+                            .frame(width: 40, height: 30)
+                            .padding()
+                    }
+                }
+                if let url = databaseManager.management?.youtube {
+                    Button {
+                        openURL(url)
+                    } label: {
+                        Image("youtube-logo")
+                            .resizable()
+                            .frame(width: 40, height: 30)
+                            .padding()
+                    }
+                }
             }
         }
         .onAppear {
