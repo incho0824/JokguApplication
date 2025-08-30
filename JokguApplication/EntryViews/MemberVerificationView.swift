@@ -121,7 +121,7 @@ struct MemberVerificationView: View {
                                     Task {
                                         do {
                                             try await DatabaseManager.shared.updateOriginalSyncd(id: member.id, syncd: 1)
-                                            try await DatabaseManager.shared.insertUser(firstName: member.firstName, lastName: member.lastName, phoneNumber: member.phoneNumber, dob: member.dob, picture: nil, permit: member.permit, guest: member.guest)
+                                            try await DatabaseManager.shared.insertUser(firstName: member.firstName, lastName: member.lastName, phoneNumber: member.phoneNumber, dob: member.dob, picture: UIImage(named: "default-profile")?.pngData(), permit: member.permit, guest: member.guest)
                                             await DatabaseManager.shared.createTablesIfNeeded(for: member.phoneNumber)
                                             await MainActor.run {
                                                 loggedInUser = member.phoneNumber
