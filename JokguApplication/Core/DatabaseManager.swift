@@ -33,17 +33,6 @@ struct Member: Identifiable {
     var orderIndex: Int
 }
 
-struct OriginalMember: Identifiable {
-    let id: String
-    var firstName: String
-    var lastName: String
-    var phoneNumber: String
-    var dob: String
-    var permit: Int
-    var guest: Int
-    var syncd: Int
-}
-
 struct UserFields {
     let phoneNumber: String
     var values: [Int]
@@ -147,18 +136,6 @@ final class DatabaseManager: ObservableObject {
         return Member(id: id, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, pictureURL: pictureURL, attendance: attendance, permit: permit, guest: guest, today: today, syncd: syncd, orderIndex: orderIndex)
     }
 
-    private func originalMemberFromDoc(_ doc: DocumentSnapshot) -> OriginalMember? {
-        guard let data = doc.data() else { return nil }
-        let firstName = data["firstname"] as? String ?? ""
-        let lastName = data["lastname"] as? String ?? ""
-        let phoneNumber = data["phonenumber"] as? String ?? ""
-        let dob = data["dob"] as? String ?? ""
-        let permit = data["permit"] as? Int ?? 0
-        let guest = data["guest"] as? Int ?? 0
-        let syncd = data["syncd"] as? Int ?? 0
-        return OriginalMember(id: doc.documentID, firstName: firstName, lastName: lastName, phoneNumber: phoneNumber, dob: dob, permit: permit, guest: guest, syncd: syncd)
-    }
-
     private func keyCodeFromDoc(_ doc: DocumentSnapshot) -> KeyCode? {
         guard let data = doc.data() else { return nil }
         let id = data["id"] as? Int ?? 0
@@ -235,7 +212,7 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    func insertUser(firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?, permit: Int = 0, guest: Int = 0) async throws {
+    func insertUser(firstName: String, lastName: String, phoneNumber: String, dob: String, picture: Data?) async throws {
         try requireAuth()
         guard try await !userExists(phoneNumber) else { throw NSError(domain: "UserExists", code: 1) }
 
@@ -290,8 +267,8 @@ final class DatabaseManager: ObservableObject {
             "phonenumber": phoneNumber,
             "dob": dob,
             "attendance": 0,
-            "permit": permit,
-            "guest": guest,
+            "permit": 0,
+            "guest": 0,
             "today": 0,
             "syncd": 1,
             "orderIndex": newId
@@ -392,19 +369,6 @@ final class DatabaseManager: ObservableObject {
         }
     }
 
-    func fetchUnsyncedOriginalMembers() async throws -> [OriginalMember] {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[OriginalMember], Error>) in
-            db.collection("original_member").whereField("syncd", isEqualTo: 0).getDocuments { snapshot, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else {
-                    let items = snapshot?.documents.compactMap { self.originalMemberFromDoc($0) } ?? []
-                    continuation.resume(returning: items)
-                }
-            }
-        }
-    }
-
     // MARK: - Updates
     private func updateMember(id: Int, fields: [String: Any]) async throws {
         try requireAuth()
@@ -430,20 +394,6 @@ final class DatabaseManager: ObservableObject {
 
     func updateSyncd(id: Int, syncd: Int) async throws {
         try await updateMember(id: id, fields: ["syncd": syncd])
-    }
-
-    func updateOriginalSyncd(id: String, syncd: Int) async throws {
-        try requireAuth()
-        let ref = db.collection("original_member").document(id)
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            ref.updateData(["syncd": syncd]) { error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: ())
-                }
-            }
-        }
     }
 
     func updateOrder(id: Int, order: Int) async throws {
