@@ -124,6 +124,19 @@ struct MemberVerificationView: View {
                                             let existing = try await DatabaseManager.shared.fetchMemberByPhoneNumber(phoneNumber: member.phoneNumber)
                                             let target = existing ?? member
 
+                                            if target.pictureURL == nil || target.pictureURL?.isEmpty == true {
+                                                if let data = UIImage(named: "default-profile")?.pngData() {
+                                                    try await DatabaseManager.shared.updateUser(
+                                                        currentPhoneNumber: target.phoneNumber,
+                                                        firstName: target.firstName,
+                                                        lastName: target.lastName,
+                                                        newPhoneNumber: target.phoneNumber,
+                                                        dob: target.dob,
+                                                        picture: data
+                                                    )
+                                                }
+                                            }
+
                                             try await DatabaseManager.shared.updateSyncd(id: target.id, syncd: 1)
                                             await DatabaseManager.shared.createTablesIfNeeded(for: target.phoneNumber)
 
