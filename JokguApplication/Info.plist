@@ -13,13 +13,19 @@
 			</array>
 		</dict>
 	</array>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>venmo</string>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>remote-notification</string>
-	</array>
+        <key>LSApplicationQueriesSchemes</key>
+        <array>
+                <string>venmo</string>
+        </array>
+        <key>CFBundleDisplayName</key>
+        <string>AJA</string>
+        <key>NSPhotoLibraryUsageDescription</key>
+        <string>This app requires photo library access to select and upload media.</string>
+        <key>NSCameraUsageDescription</key>
+        <string>This app requires camera access to capture photos and videos.</string>
+        <key>UIBackgroundModes</key>
+        <array>
+                <string>remote-notification</string>
+        </array>
 </dict>
 </plist>
