@@ -610,34 +610,30 @@ final class DatabaseManager: ObservableObject {
 
     // MARK: - User Fields
     func saveUserFields(phoneNumber: String, fields: [Int]) async -> Bool {
-        await withCheckedContinuation { continuation in
-            guard self.isAuthenticated else {
-                continuation.resume(returning: false)
-                return
-            }
-            var data: [String: Any] = ["phoneNumber": phoneNumber]
-            for (index, value) in fields.enumerated() {
-                data["field\(index + 1)"] = value
-            }
-            db.collection("user_fields").document(phoneNumber).setData(data) { error in
-                continuation.resume(returning: error == nil)
-            }
+        guard isAuthenticated else { return false }
+        var data: [String: Any] = ["phoneNumber": phoneNumber]
+        for (index, value) in fields.enumerated() {
+            data["field\(index + 1)"] = value
+        }
+        do {
+            try await db.collection("user_fields").document(phoneNumber).setData(data)
+            return true
+        } catch {
+            return false
         }
     }
 
     func fetchUserFields(phoneNumber: String) async -> [Int]? {
-        await withCheckedContinuation { continuation in
-            db.collection("user_fields").document(phoneNumber).getDocument { doc, _ in
-                guard let doc = doc, doc.exists else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                var arr: [Int] = []
-                for i in 1...12 {
-                    arr.append(doc.data()?["field\(i)"] as? Int ?? 0)
-                }
-                continuation.resume(returning: arr)
+        do {
+            let doc = try await db.collection("user_fields").document(phoneNumber).getDocument()
+            guard doc.exists else { return nil }
+            var arr: [Int] = []
+            for i in 1...12 {
+                arr.append(doc.data()? ["field\(i)"] as? Int ?? 0)
             }
+            return arr
+        } catch {
+            return nil
         }
     }
 
@@ -650,34 +646,28 @@ final class DatabaseManager: ObservableObject {
 
         // Ensure member counter exists
         let counterRef = db.collection("counters").document("member")
-        await withCheckedContinuation { continuation in
-            counterRef.getDocument { doc, _ in
-                if let doc = doc, doc.exists {
-                    continuation.resume()
-                } else {
-                    counterRef.setData(["nextId": 1]) { _ in
-                        continuation.resume()
-                    }
-                }
+        do {
+            let doc = try await counterRef.getDocument()
+            if !doc.exists {
+                try await counterRef.setData(["nextId": 1])
             }
+        } catch {
+            // Ignore errors
         }
 
         // Ensure user_fields document exists for this user
         let userFieldsRef = db.collection("user_fields").document(phoneNumber)
-        await withCheckedContinuation { continuation in
-            userFieldsRef.getDocument { doc, _ in
-                if let doc = doc, doc.exists {
-                    continuation.resume()
-                } else {
-                    var data: [String: Any] = ["phoneNumber": phoneNumber]
-                    for i in 1...12 {
-                        data["field\(i)"] = 0
-                    }
-                    userFieldsRef.setData(data) { _ in
-                        continuation.resume()
-                    }
+        do {
+            let doc = try await userFieldsRef.getDocument()
+            if !doc.exists {
+                var data: [String: Any] = ["phoneNumber": phoneNumber]
+                for i in 1...12 {
+                    data["field\(i)"] = 0
                 }
+                try await userFieldsRef.setData(data)
             }
+        } catch {
+            // Ignore errors
         }
     }
 }
