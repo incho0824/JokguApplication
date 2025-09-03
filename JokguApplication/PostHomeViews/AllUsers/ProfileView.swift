@@ -169,7 +169,6 @@ struct ProfileView: View {
                                 await MainActor.run {
                                     KeychainManager.shared.delete("loggedInUser")
                                     KeychainManager.shared.delete("userPermit")
-                                    KeychainManager.shared.delete("faceIDEnabled")
                                     userPermit = 0
                                     phoneNumber = ""
                                     isLoggedIn = false
