@@ -23,6 +23,8 @@
         <string>This app requires photo library access to select and upload media.</string>
         <key>NSCameraUsageDescription</key>
         <string>This app requires camera access to capture photos and videos.</string>
+        <key>NSFaceIDUsageDescription</key>
+        <string>This app uses Face ID for secure authentication.</string>
         <key>UIBackgroundModes</key>
         <array>
                 <string>remote-notification</string>
